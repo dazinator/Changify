@@ -4,21 +4,21 @@
     <TargetFrameworks>netstandard2.0;netstandard2.1;net50</TargetFrameworks>
     <PackageId>Changify.Configuration</PackageId>
   </PropertyGroup>
- 
+
   <ItemGroup Condition="'$(TargetFramework)'=='netstandard2.0'">
-    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="2.1.0" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="2.1.0" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)'=='netstandard2.1'">
-    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="3.1.0" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="3.1.0" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)'=='net50'">
-    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="5.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="5.0.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\DotNet.Changify\DotNet.Changify.csproj" />
+    <ProjectReference Include="..\Changify\Changify.csproj" />
   </ItemGroup>
-
+  
 </Project>

@@ -1,0 +1,55 @@
+namespace Microsoft.Extensions.Primitives
+{
+    using System;
+    using Microsoft.Extensions.Options;
+
+    public static class ChangeTokenFactoryUtils
+    {
+        public static ChangeTokenProducerBuilder IncludeOptionsChangeTrigger<TOptions>(
+            this ChangeTokenProducerBuilder builder,
+            IOptionsMonitor<TOptions> monitor,
+            string optionsName = "",
+            Func<TOptions, string, bool> shouldTrigger = null) => builder.IncludeSubscribingHandlerTrigger((trigger) => monitor.OnChange((o, n) =>
+            {
+                if (!string.IsNullOrEmpty(optionsName))
+                {
+                    if (!n.Equals(optionsName, StringComparison.InvariantCulture))
+                    {
+                        return;
+                    }
+                }
+                if (shouldTrigger == null)
+                {
+                    trigger?.Invoke();
+                    return;
+                }
+                if (shouldTrigger(o, n))
+                {
+                    trigger?.Invoke();
+                }
+            }));
+
+        public static ChangeTokenProducerBuilder IncludeOptionsChangeTrigger<TOptions>(
+            this ChangeTokenProducerBuilder builder,
+            IOptionsMonitor<TOptions> monitor,
+            string optionsName = "",
+            Action<TOptions, string, Action> onOptionsChange = null) => builder.IncludeSubscribingHandlerTrigger((trigger) => monitor.OnChange((o, n) =>
+    {
+        if (!string.IsNullOrEmpty(optionsName))
+        {
+            if (!n.Equals(optionsName, StringComparison.InvariantCulture))
+            {
+                return;
+            }
+        }
+        if (onOptionsChange == null)
+        {
+            trigger?.Invoke();
+            return;
+        }
+        onOptionsChange.Invoke(o, n, trigger);
+    }));
+
+
+    }
+}

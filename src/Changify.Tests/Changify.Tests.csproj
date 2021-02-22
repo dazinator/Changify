@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\DotNet.Changify\DotNet.Changify.csproj" />
+    <ProjectReference Include="..\Changify\Changify.csproj" />
   </ItemGroup>
 
 </Project>
