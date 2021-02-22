@@ -222,7 +222,7 @@ These let you also include Configuration Reloads, or Options Monitor changes mor
  .IncludeOptionsChangeTrigger<MyOptions>(monitor, "Foo") // only if the options named "Foo" changes.
  .IncludeOptionsChangeTrigger<MyOptions>(monitor, "") // only if the default named options "" changes.
  .IncludeOptionsChangeTrigger<MyOptions>(monitor, (opts, name)=>{ return true; }) // use a predicate to decide.
- .IncludeOptionsChangeTrigger<MyOptions>(monitor, (opts, name, trigger)=>{ trigger(); }) // call the trigger if you want.
+ .IncludeOptionsChangeTrigger<MyOptions>(monitor, null, (opts, name, trigger)=>{ trigger(); }) // call the trigger if you want.
 ```
 
 If you don't have the `IOptionsMonitor' instance handy, but you have the `IServiceProvider` - as often might be the case in startup logic, you can use the convience overloads on all of the aboce that takes the IServiceProvider rather than the options monitor.
