@@ -51,6 +51,13 @@ namespace Microsoft.Extensions.Primitives
 
         }
 
+        public IDisposableChangeTokenProducer Build()
+        {
+            var built = Build(out var lifetime);
+            return new DisposableChangeTokenProducer(built, lifetime);
+        }
+
+
         private void Reset()
         {
             Factories.Clear();
@@ -88,34 +95,24 @@ namespace Microsoft.Extensions.Primitives
         }
 
         /// <summary>
-        /// Inlcude your own change token producer in the composite. 
-        /// If your <see cref="Func{IChangeToken}"/> at any point returns null, 
-        /// then an <see cref="EmptyChangeToken"/> will be returned to the consumer,
-        /// which is a Noop token to avoid null ref exceptions.
+        /// Inlcude your own change token producer in the composite. If it implements IDisposable then ownership is transferred to the composite producer, unless you supply isExternallyOwned = true.
         /// </summary>
-        /// <param name="invokedOnProducerDispose">When this token producer is disposed, this action will be called, and is your chance to also dispose of your own change token producer resources if you no longer need them.</param>
-        /// <param name="disposePreviousChangeTokens">If true (default) then when issuing a new token, will dispose of the previous token if its IDisposable.</param>
+        /// <param name="producer">Producer to include in this composite.</param>
+        /// <param name="isExternallyOwned">Whether you want be in charge of disposing this producer should it implement IDisposable. Defaults to false.</param>
         /// <returns></returns>
-        public ChangeTokenProducerBuilder Include(Func<IChangeToken> changeToken, Action invokedOnProducerDispose, bool disposePreviousChangeTokens = true)
+        public ChangeTokenProducerBuilder Include(IChangeTokenProducer producer, bool isExternallyOwned = false)
         {
-            IChangeToken currentToken = null;
-            _disposables.Add(new InvokeOnDispose(invokedOnProducerDispose));
-
-            IChangeToken result()
+            // IChangeToken currentToken = null;
+            if (!isExternallyOwned && producer is IDisposable disposable)
             {
-                // consumer is asking for a new token, any previous token is dead.                 
-                var previous = Interlocked.Exchange(ref currentToken, changeToken() ?? EmptyChangeToken.Instance);
-                if (disposePreviousChangeTokens && previous is IDisposable disposable)
-                {
-                    disposable?.Dispose();
-                }
-                return currentToken;
+                _disposables.Add(disposable);
             }
+
+            IChangeToken result() => producer.Produce() ?? EmptyChangeToken.Instance;
 
             Factories.Add(result);
             return this;
         }
-
 
         /// <summary>
         /// Inlcude your own change token's in the composite that are generated
@@ -474,4 +471,5 @@ namespace Microsoft.Extensions.Primitives
             return this;
         }
     }
+
 }
