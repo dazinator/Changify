@@ -41,7 +41,9 @@ Example:
             Assert.True(signalled);       
 ```
 
-As you can see, suppose in this case you needed to signal the consumer if either the application config is updated, or an api call is received - it would be fairly simple to have that code invoke a trigger like this, and your job is done.
+As you can see, suppose in this case you needed to signal the consumer if either the application config is updated,
+or an api call is received - it would be fairly simple to have that code invoke a trigger like this, and your job is done. 
+Stay tuned however, because this is just one type of trigger and there are a lot more covered below.
 
 ## Producer Lifetime
 
