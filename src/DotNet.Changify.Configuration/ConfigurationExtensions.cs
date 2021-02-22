@@ -4,7 +4,7 @@ namespace Microsoft.Extensions.Primitives
 
     public static class ChangeTokenFactoryUtils
     {
-        public static ChangeTokenProducerBuilder IncludeConfigurationChange<TOptions>(this ChangeTokenProducerBuilder builder, IConfiguration config)
+        public static ChangeTokenProducerBuilder IncludeConfigurationChange(this ChangeTokenProducerBuilder builder, IConfiguration config)
         {
             IChangeToken factory() => config.GetReloadToken();
             builder.Factories.Add(factory);
