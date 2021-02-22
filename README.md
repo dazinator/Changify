@@ -1,13 +1,16 @@
-## Features
+## The Problem
 
-Build composite `IChangeToken's using a convenient fluent / builder style api to easily incorporate various sources of change signalling, common in applications.
+Change Token's are a primitive in the modern `dotnet` stack, that are used to signal changes to consumers. 
+`Microsoft` provides the convenient `ChangeToken.OnChange()` api to easily subscribe to some producer of these `IChangeToken`'s 
+and to have your callback invoked whenever changes are signalled - which is great.
+
+However in order to create the change token producer, it can be more tricky, especially if you want to signal changes based on a variety of events.
+This library can help you with that.
 
 ### Basic Usage
 
-Use the fluent builder to build an `IChangeToken` producer that can be used in your application to supply `IChangeTokens` 
-that are a composite of various sources. Should any of those sources signal, then the composite change token is signalled.
-
-The simplest way to signal the change token is to include some `Trigger`s - which you can invoke from anywhere in your application.
+Let's build a simple `IChangeToken` producer with a couple of triggers.
+You can invoke these from anywhere in your application to signal a change to the consumer.
 
 Example:
 
@@ -38,6 +41,8 @@ Example:
             Assert.True(signalled);       
 ```
 
+As you can see, suppose in this case you needed to signal the consumer if either the application config is updated, or an api call is received - it would be fairly simple to have that code invoke a trigger like this, and your job is done.
+
 ## Producer Lifetime
 
 When you `Build` the producer, you may notice you get an `out` parameter which is an `IDisposable`.
@@ -49,21 +54,21 @@ When you `Build` the producer, you may notice you get an `out` parameter which i
                                     .Build(out var producerLifetime);
 ```
 
-You should keep a reference to this `IDisposable` alive somewhere in your application (probably alongside the token producer itself), 
+You should keep a reference to this `IDisposable` alive somewhere in your application (probably alongside the token producer itself is best), 
 as it represents the lifetime of the producer that you built.
-In the example above, this `IDisposable` does precisely nothing when disposed.
+In the example above, this `IDisposable` does precisely nothing when disposed..
 However in more advanced scenarios like the ones shown below,
-some sources of change may come with `IDisposable`s that need to be disposed of when you are no longer interested in them.
-For example, if you include an event handler as a source of change, then the handler needs to be removed from the event when it is no longer required. 
-Disposing of the `producerLifetime` ensures any IDisposables that the token consumer no longer needs are disposed.
+some sources of change that you tilise with the builder, may come with their own `IDisposable`s that need to be disposed of when you are no longer interested in them.
+For example, if you include an event handler, then the handler should be removed from the event when it is no longer required. 
+Disposing of this `producerLifetime` will ensure any necessary cleanup like this is done.
 
 ## What else can I do
 
-The builder has other methods to incorporate signals from other sources and areas, common in applications.
+The builder has other methods to incorporate signals from other sources common in applications.
 
-The following will go through each one, skip to the bottom to see a code sample showing all of these methods used on a builder.
+Skip to the bottom to see an example of the entire api surface so far.
 
-1. Include your own custom change tokens:
+1. Include your own custom change tokens from somewhere.
 
 ```csharp
  .Include(()=>new MyCustomChangeToken())
@@ -76,14 +81,22 @@ The following will go through each one, skip to the bottom to see a code sample 
 .IncludeCancellationTokens(()=>new CancellationToken())
 ```
 
-3. Include a deferred trigger. A deffered trigger is similar to a normal trigger - i.e a callback that you use to invalidate change tokens, however it isn't supplied to you until the first change token is requested. This means there is no danger of using the trigger before any change tokens are in play. This also lets you defer logic until a change token is actually in play.
+When such `CancellationToken`s are signalled.. you guessed it.
+
+3. Include a deferred trigger. 
+
+A deffered trigger is similar to a normal trigger - i.e a callback that you use to invalidate change tokens, 
+however it isn't supplied to you until the first change token is consumed by some consumer.
+This lets you defer any logic that excercises the trigger until a change token is actually in play.
 
 ```csharp
- .IncludeDeferredTrigger((trigger) => trigger.Invoke()) // callback invoked to supply you a trigger once the first token is consumed. Note: logic here is synchronous and so will blocks the caller requesting the very first token.
+ .IncludeDeferredTrigger((trigger) => trigger.Invoke()) // callback invoked to supply you a trigger once the first token is consumed. Note: logic here is synchronous and so will blocks the caller requesting the very first token so be snappy.
 ```
 
 4. Include a deffered asynchronouse trigger. 
-Similar to a deferred trigger above, except you are given a chance to run non blocking asynchronous logic with the trigger as a seperate fire and forget async task that token consumer doesn't wait upon.
+
+Similar to a deferred trigger above, except you are given a chance to run non blocking asynchronous logic with the trigger as a seperate fire and forget async task that won't block the consumer.
+
 Consider the following:
 
 ```csharp
@@ -95,9 +108,8 @@ Consider the following:
                                     })
  ```
 
- When the first token is consumed, the above async callback will also be fired as a "fire and forget" task by the token producer.
- You can run any async logic and use the trigger to signal appropriately.
- In this example, we wait 200 ms and then trigger the change token, then wait another 500ms and trigger it again.
+ When the first token is consumed, the above async task is fired as a "fire and forget" task.
+ In this example, we simulate some work with some delays, and trigger the change tokens a few times to signal any consumer.
  This could be quite powerful if you wanted to signal the consumer peridocally based on some work happening in tandem.
 
  5. Include a trigger that gets fired when an `event` fires.
@@ -145,12 +157,12 @@ This might be useful if you prefer to do some brief logic here per change token,
 ```
 
 
-### It passes
+### Just showing the api surface..
 
 Just showing the api surface of the builder, and showing the async task trigger in action too..
 
 ```csharp
-
+        [Fact]
         public async Task Readme_Advanced_Compiles()
         {
             Action triggerX = null;
