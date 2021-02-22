@@ -1,5 +1,6 @@
 namespace Microsoft.Extensions.Primitives
 {
+    using System;
     using Microsoft.Extensions.Configuration;
 
     public static class ChangeTokenFactoryUtils

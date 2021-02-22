@@ -5,13 +5,13 @@ Change Token's are a primitive in the modern `dotnet` stack, that are used to si
 `Microsoft` provides the convenient `ChangeToken.OnChange()` api to easily subscribe to some producer of these `IChangeToken`'s 
 and to have your callback invoked whenever changes are signalled - which is great.
 
-However in order to create the change token producer, it can be more tricky, especially if you want to signal changes based on a variety of events.
+However it can be tricky to create a reliable token producer, especially if you want to signal changes based on a variety of sources in your application.
 This library can help you with that.
 
 ### Basic Usage
 
 Let's build a simple `IChangeToken` producer with a couple of triggers.
-You can invoke these from anywhere in your application to signal a change to the consumer.
+You can invoke these to signal a change to the consumer.
 
 Example:
 
@@ -42,8 +42,7 @@ Example:
             Assert.True(signalled);       
 ```
 
-As you can see, suppose in this case you needed to signal the consumer if either the application config is updated,
-or an api call is received - it would be fairly simple to have that code invoke a trigger like this, and your job is done. 
+As you can see, in this case it's relatively simple to keep a reference to the trigger somewhere, and signal the consumer when necessary.
 Stay tuned however, because this is just one type of trigger and there are a lot more covered below.
 
 ## Producer Lifetime
@@ -60,37 +59,37 @@ When you `Build` the producer, you may notice you get an `out` parameter which i
 You should keep a reference to this `IDisposable` alive somewhere in your application (probably alongside the token producer itself is best), 
 as it represents the lifetime of the producer that you built.
 In the example above, this `IDisposable` does precisely nothing when disposed..
-However in more advanced scenarios like the ones shown below,
-some sources of change that you tilise with the builder, may come with their own `IDisposable`s that need to be disposed of when you are no longer interested in them.
-For example, if you include an event handler, then the handler should be removed from the event when it is no longer required. 
-Disposing of this `producerLifetime` will ensure any necessary cleanup like this is done.
+However in more advanced scenarios like the ones shown below, disposing of this ensures that any necessary cleanup is done, for example detaching event handlers etc.
 
-## What else can I do
+## Other types of triggers?
 
-The builder has other methods to incorporate signals from other sources common in applications.
+The builder has other methods to incorporate signals from other sources.
+
+It's worth mentioning that most of the api's have a "deferred" flavour.
+
+- Deferred: The callback you supply won't be executed until the very first token is consumed.
+
+i.e the logic is deferred until first use of a token.
+
+If you don't use the `deferred` version of the api, then the callback you supply is executed immediately instead of inline with consumption of the first token.
 
 Skip to the bottom to see an example of the entire api surface so far.
 
-1. Include your own custom change tokens from somewhere.
+1. Include a producer of your own custom change tokens.
 
 ```csharp
  .Include(()=>new MyCustomChangeToken())
 
 ```
 
-2. Include a producer of cancellation tokens:
+2. Include a producer of cancellation tokens.
+These are converted to change tokens and signalled when the cancellation token is cancelled.
 
 ```csharp
 .IncludeCancellationTokens(()=>new CancellationToken())
 ```
 
-When such `CancellationToken`s are signalled.. you guessed it.
-
 3. Include a deferred trigger. 
-
-A deffered trigger is similar to a normal trigger - i.e a callback that you use to invalidate change tokens, 
-however it isn't supplied to you until the first change token is consumed by some consumer.
-This lets you defer any logic that excercises the trigger until a change token is actually in play.
 
 ```csharp
  .IncludeDeferredTrigger((trigger) => trigger.Invoke()) // callback invoked to supply you a trigger once the first token is consumed. Note: logic here is synchronous and so will blocks the caller requesting the very first token so be snappy.
@@ -98,7 +97,7 @@ This lets you defer any logic that excercises the trigger until a change token i
 
 4. Include a deffered asynchronouse trigger. 
 
-Similar to a deferred trigger above, except you are given a chance to run non blocking asynchronous logic with the trigger as a seperate fire and forget async task that won't block the consumer.
+Similar to a deferred trigger above, except you are given a chance to run non blocking asynchronous logic with the trigger - that won't block the consumer.
 
 Consider the following:
 
@@ -110,10 +109,6 @@ Consider the following:
                                         trigger();
                                     })
  ```
-
- When the first token is consumed, the above async task is fired as a "fire and forget" task.
- In this example, we simulate some work with some delays, and trigger the change tokens a few times to signal any consumer.
- This could be quite powerful if you wanted to signal the consumer peridocally based on some work happening in tandem.
 
  5. Include a trigger that gets fired when an `event` fires.
 
@@ -131,12 +126,10 @@ public event EventHandler<SomeEventArgs> SomeEvent;
 
 ```
 
-Whenever the event is raised, the change token will be signalled.
+Whenever the event is raised, the change token will be signalled. 
+The `removeHandler` callback is invoked when the token producer lifetime is disposed.
 
-To include this event, note we must provide an `addHandler` callback to add / attach the event handler, as well as another to remove
-the handler. Internally an IDisposable is created that will call the `removeHandler` callback when the token producer lifetime IDisposable is disposed.
-
-6. Include a trigger that gets fired when a subscribed callback is fired.
+6. Include a trigger that has its own `IDisposable` cleanup.
 
 Some api's - like the `IOptionsMonitor.OnChange()` api, adopt a pattern where you register a callback and keep hold of an `IDisposable` representing that registration.
 It will then invoke the callback to notify you of some change, until you indicate you are no longer interested, by disposing of the subscription.
@@ -148,17 +141,20 @@ IncludeSubscribingHandlerTrigger((trigger)=> monitor.OnChange((o,n)=> trigger())
 
 ```
 
-Internally the `IDisposable` representing the OnChange callback registration is incorporated into the token producers lifetime `IDisposable`.
+This API let's you return the `IDisposable' so that it will be disposed when the token producer lifetime is disposed.
 
-7. Include a trigger that gets fired when a subscribed callback is fired, that then unsubscribes and re-subscribes the callback afresh.
+7. Include a trigger that has its own `IDisposable` cleanup, and should be recycled per token consumed.
 
-In the following example, the `IOptionsMonitor.OnChange()` method is used to subscribe a callback. When this callback is invoked, the change token is signalled. The subscription is then disposed so options monitor removes the callback. The delegate is then invoked again to subscribe a new callback to the monitor.OnChange() method.
-This might be useful if you prefer to do some brief logic here per change token, as opposed to setting up the callback subscription once.
+This behaves in a similar way to the `IncludeSubscribingHandlerTrigger` api, except it will be invoked for each new token, and the previously returned IDiposable will be disposed before each new invocation.
+This might be useful if you prefer to do some brief logic per change token.
+
+In the following scenario, any time the options monitor raises a change it will signal the consumer.
+If the consumer then requests another token, then the IDipsosable previously returned from monitor.OnChange() will be disposed causing that OnChange handler to be removed. The callback itself will then be executed again to subscribe a new handler to monitor.OnChange() and get a new IDisposable.
+This process repeats.
 
 ```csharp
 .IncludeResubscribingHandlerTrigger((trigger) => monitor.OnChange((o, n) => trigger()))
 ```
-
 
 ### Just showing the api surface..
 
@@ -179,11 +175,10 @@ Just showing the api surface of the builder, and showing the async task trigger 
                                                         .GetRequiredService<IOptionsMonitor<FooOptions>>();
 
             Func<IChangeToken> tokenProducer = new ChangeTokenProducerBuilder()
-                                    .IncludeTrigger(out triggerX)
-                                    .IncludeTrigger(out triggerY)
                                     .Include(() => new TriggerChangeToken())
-                                    .IncludeCancellationTokens(() => new CancellationToken())
-                                    .IncludeDeferredTrigger((trigger) => trigger.Invoke())
+                                    .IncludeCancellationTokens(() => new CancellationToken()) 
+                                    .IncludeTrigger(out triggerX)
+                                    .IncludeDeferredTrigger((trigger) => trigger.Invoke())       
                                     .IncludeDeferredAsyncTrigger(async (trigger) =>
                                     {
                                         await Task.Delay(200);
@@ -191,12 +186,16 @@ Just showing the api surface of the builder, and showing the async task trigger 
                                         await Task.Delay(500);
                                         trigger();
                                     })
+                                    .IncludeSubscribingHandlerTrigger((trigger) => monitor.OnChange((o, n) => trigger()))
+                                    .IncludeDeferredSubscribingHandlerTrigger((trigger) => monitor.OnChange((o, n) => trigger()))   
                                     .IncludeEventHandlerTrigger<string>(
                                         addHandler: (handler) => SomeEvent += handler,
-                                        removeHandler: (handler) => SomeEvent -= handler,
-                                        (disposable) => subscription = disposable)
-                                    .IncludeSubscribingHandlerTrigger((trigger) => monitor.OnChange((o, n) => trigger()))
+                                        removeHandler: (handler) => SomeEvent -= handler)
+                                    .IncludeDeferredEventHandlerTrigger<string>(
+                                        addHandler: (handler) => SomeEvent += handler,
+                                        removeHandler: (handler) => SomeEvent -= handler)
                                     .IncludeResubscribingHandlerTrigger((trigger) => monitor.OnChange((o, n) => trigger()))
+                                    .IncludeDeferredResubscribingHandlerTrigger((trigger) => monitor.OnChange((o, n) => trigger()))
                                     .Build(out var producerLifetime);
 
             var signalled = false;
@@ -211,6 +210,21 @@ Just showing the api surface of the builder, and showing the async task trigger 
         }
 ```
 
+## Companion packages
 
+Just for convenience an `Changify.Configuration` and `Changify.Options` nuget package is available.
+These let you also include Configuration Reloads, or Options Monitor changes more easily.
 
+## Changify.Options
 
+```csharp
+ .IncludeOptionsChangeTrigger<MyOptions>(monitor)  // fires whenever any change for MyOptions occurs
+ .IncludeOptionsChangeTrigger<MyOptions>(monitor, "Foo") // only if the options named "Foo" changes.
+ .IncludeOptionsChangeTrigger<MyOptions>(monitor, "") // only if the default named options "" changes.
+ .IncludeOptionsChangeTrigger<MyOptions>(monitor, (opts, name)=>{ return true; }) // use a predicate to decide.
+ .IncludeOptionsChangeTrigger<MyOptions>(monitor, (opts, name, trigger)=>{ trigger(); }) // call the trigger if you want.
+```
+
+## Changify.Configuration
+
+.IncludeConfigurationReloads(config); // if the config reloads..you guessed it?

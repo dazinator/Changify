@@ -231,14 +231,36 @@ namespace Microsoft.Extensions.Primitives
         }
 
         /// <summary>
-        /// Takes a function that will register a "listener" / trigger <see cref="Action"/> and return a <see cref="IDisposable"/> to represent the active subscription,
-        /// and adds a change token factory whose <see cref="IChangeToken"/> will be signalled whenever the trigger <see cref="Action"/> is invoked.
-        /// The function to register the trigger <see cref="Action"/> is lazily invoked when the first <see cref="IChangeToken"/> is requested, and then the returned <see cref="IDisposable"/> 
-        /// is kept which represents the registration. 
+        /// Takes a callback that will be invoked immediately with the trigger callback, and allows an IDisposable to be returned which will be Disposed when the token producer lifetime is disposed, to perform any cleanup necessary.
         /// </summary>
         /// <param name="registerListener"></param>
         /// <returns></returns>
         public ChangeTokenProducerBuilder IncludeSubscribingHandlerTrigger(Func<Action, IDisposable> subscribeDelegate)
+        {
+            TriggerChangeToken currentToken = null;
+
+            // lazy because we wait for a change token to be requested 
+            // before we bother attaching the subscriber.
+            var activeSubscription = subscribeDelegate(() => currentToken?.Trigger());
+            _disposables.Add(activeSubscription);
+
+            IChangeToken result()
+            {
+                var previous = Interlocked.Exchange(ref currentToken, new TriggerChangeToken());
+                previous?.Dispose();
+                return currentToken;
+            }
+
+            Factories.Add(result);
+            return this;
+        }
+
+        /// <summary>
+        /// Takes a callback that will be lazily invoked when the first change token is requested, and allows an IDisposable to be returned which will be Disposed when the token producer lifetime is disposed.
+        /// </summary>
+        /// <param name="registerListener"></param>
+        /// <returns></returns>
+        public ChangeTokenProducerBuilder IncludeDeferredSubscribingHandlerTrigger(Func<Action, IDisposable> subscribeDelegate)
         {
             TriggerChangeToken currentToken = null;
 
@@ -266,13 +288,9 @@ namespace Microsoft.Extensions.Primitives
             return this;
         }
 
-
         /// <summary>
-        /// Takes a registration function that will be invoked to register a "listener" / trigger <see cref="Action"/> and return a <see cref="IDisposable"/> to represent the active subscription,
-        /// and adds a change token factory whose <see cref="IChangeToken"/> will be signalled whenever the trigger <see cref="Action"/> is invoked.
-        /// The function to register the trigger <see cref="Action"/> is lazily invoked when the first <see cref="IChangeToken"/> is requested, and then the returned <see cref="IDisposable"/> 
-        /// is kept which represents the registration. When the action is triggered, not only will the change token be signalled, but the subscription will be disposed, and the registration function will then be invoked again to 
-        /// create a new subscription of the listener.
+        /// Takes a callback that will be invoked immediately with the trigger action, and returns a disposable to represent any clean up.
+        /// This is "resubscribing" because this process repeats for each token that is produced, with the IDisposable from the previous invocation being disposed prior to the next invocation.
         /// </summary>
         /// <param name="registerListener"></param>
         /// <returns></returns>
@@ -281,6 +299,9 @@ namespace Microsoft.Extensions.Primitives
 
             TriggerChangeToken currentToken = null;
             IDisposable registration = null;
+
+            registration = registerListener(() => currentToken?.Trigger());
+            _disposables.Add(new InvokeOnDispose(() => registration?.Dispose())); // ensure any current disposable is disposed when producer disposed.
 
             IChangeToken result()
             {
@@ -297,21 +318,91 @@ namespace Microsoft.Extensions.Primitives
                 return currentToken;
             }
 
-            this._disposables.Add(new InvokeOnDispose(() => registration?.Dispose()));
-
             Factories.Add(result);
             return this;
         }
 
 
         /// <summary>
-        /// Include a change token that will be triggered whenever an event handler is invoked.
-        /// A callback is called when the first change token is requested, for you to register the event handler.
-        /// If you do not provide an ownsHandlerLifetime callback to take ownership of the IDisposable representing the handler subcription, then
-        /// this will be tracked for you and disposed when the factory is disposed. Otherwise you can take ownersip of this and ensure it is disposed in order
-        /// to remove the handler when you are done with it.
+        /// Takes a callback that will be invoked once the first token is issued, and is passed the trigger action, and should return a disposable to represent any clean up.
+        /// This is "resubscribing" because this process repeats for each subsequent token that is produced, with the IDisposable from the previous invocation being disposed prior to each next invocation.
         /// </summary>
+        /// <param name="registerListener"></param>
+        /// <returns></returns>
+
+        public ChangeTokenProducerBuilder IncludeDeferredResubscribingHandlerTrigger(Func<Action, IDisposable> registerListener)
+        {
+
+            TriggerChangeToken currentToken = null;
+            IDisposable registration = null;
+            this._disposables.Add(new InvokeOnDispose(() => registration?.Dispose()));
+
+            IChangeToken result()
+            {
+                // consumer is asking for a new token, initialise it first so that if the registerListener callback below happens immeditely it will trigger the new token
+                // not the old. This does also mean there is a period of time in which if the current listener fires again it will trigger the new token but think thats ok.
+                var previousToken = Interlocked.Exchange(ref currentToken, new TriggerChangeToken());
+                previousToken?.Dispose();
+
+                // Ensure we are actively listening for callbacks, adding the new subscription first,
+                // before disposing any old subscription to ensure no gaps in listener coverage.
+                var previousRegistration = Interlocked.Exchange(ref registration, registerListener(() => currentToken?.Trigger()));
+                previousRegistration?.Dispose();
+
+                return currentToken;
+            }
+
+
+            Factories.Add(result);
+            return this;
+        }
+
+        /// <summary>
+        /// Takes a callback that will be invoked immediately and which should add the event handler to the event.
+        /// Takes another callback which will be invoked to remove the handler when the token producer lifetime is over.
+        /// Takes a further optional callback if you want to take control over when the handler is disposed yourself.
+        /// </summary>
+        /// <param name="registerListener"></param>
+        /// <returns></returns>
         public ChangeTokenProducerBuilder IncludeEventHandlerTrigger<TEventArgs>(
+            Action<EventHandler<TEventArgs>> addHandler,
+            Action<EventHandler<TEventArgs>> removeHandler,
+            Action<IDisposable> ownsHandlerLifetime = null)
+        {
+            TriggerChangeToken currentToken = null;
+            void triggerChangeTokenHandler(object a, TEventArgs e) => currentToken?.Trigger();
+
+            addHandler(triggerChangeTokenHandler);
+
+            // ensure handler gets cleaned up if caller not taking responsibility for that.
+            var handlerLifetime = new InvokeOnDispose(() => removeHandler(triggerChangeTokenHandler));
+            if (ownsHandlerLifetime == null)
+            {
+                this._disposables.Add(handlerLifetime);
+            }
+            else
+            {
+                ownsHandlerLifetime.Invoke(handlerLifetime);
+            }
+
+            IChangeToken factory()
+            {
+                // consumer is asking for a new token, any previous token is dead.                
+                var previous = Interlocked.Exchange(ref currentToken, new TriggerChangeToken());
+                previous?.Dispose();
+                return currentToken;
+            }
+
+            Factories.Add(factory);
+            return this;
+        }
+
+        /// <summary>
+        /// Takes a callback that will be invoked when the first token is requested, and which should add the event handler to the event.
+        /// Takes another callback which will be invoked to remove the handler when the token producer lifetime is over.
+        /// Takes a further optional callback if you want to take control over when the handler is disposed yourself.
+        /// </summary>
+        public ChangeTokenProducerBuilder IncludeDeferredEventHandlerTrigger<TEventArgs>(
             Action<EventHandler<TEventArgs>> addHandler,
             Action<EventHandler<TEventArgs>> removeHandler,
             Action<IDisposable> ownsHandlerLifetime = null)

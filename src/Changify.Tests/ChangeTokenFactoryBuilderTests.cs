@@ -156,12 +156,12 @@ namespace Tests
                                         await Task.Delay(500);
                                         trigger();
                                     })
-                                    .IncludeEventHandlerTrigger<string>(
+                                    .IncludeDeferredEventHandlerTrigger<string>(
                                         addHandler: (handler) => SomeEvent += handler,
                                         removeHandler: (handler) => SomeEvent -= handler,
                                         (disposable) => subscription = disposable)
-                                    .IncludeSubscribingHandlerTrigger((trigger) => monitor.OnChange((o, n) => trigger()))
-                                    .IncludeResubscribingHandlerTrigger((trigger) => monitor.OnChange((o, n) => trigger()))
+                                    .IncludeDeferredSubscribingHandlerTrigger((trigger) => monitor.OnChange((o, n) => trigger()))
+                                    .IncludeDeferredResubscribingHandlerTrigger((trigger) => monitor.OnChange((o, n) => trigger()))
                                     .Build(out var producerLifetime);
 
             var signalled = false;

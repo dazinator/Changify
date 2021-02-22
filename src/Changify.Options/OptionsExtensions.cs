@@ -9,9 +9,9 @@ namespace Microsoft.Extensions.Primitives
             this ChangeTokenProducerBuilder builder,
             IOptionsMonitor<TOptions> monitor,
             string optionsName = "",
-            Func<TOptions, string, bool> shouldTrigger = null) => builder.IncludeSubscribingHandlerTrigger((trigger) => monitor.OnChange((o, n) =>
+            Func<TOptions, string, bool> shouldTrigger = null) => builder.IncludeDeferredSubscribingHandlerTrigger((trigger) => monitor.OnChange((o, n) =>
             {
-                if (!string.IsNullOrEmpty(optionsName))
+                if (optionsName != null)
                 {
                     if (!n.Equals(optionsName, StringComparison.InvariantCulture))
                     {
@@ -30,12 +30,29 @@ namespace Microsoft.Extensions.Primitives
             }));
 
         public static ChangeTokenProducerBuilder IncludeOptionsChangeTrigger<TOptions>(
+    this ChangeTokenProducerBuilder builder,
+    IOptionsMonitor<TOptions> monitor,
+    Func<TOptions, string, bool> shouldTrigger = null) => builder.IncludeDeferredSubscribingHandlerTrigger((trigger) => monitor.OnChange((o, n) =>
+    {
+        if (shouldTrigger == null)
+        {
+            trigger?.Invoke();
+            return;
+        }
+        if (shouldTrigger(o, n))
+        {
+            trigger?.Invoke();
+        }
+    }));
+
+
+        public static ChangeTokenProducerBuilder IncludeOptionsChangeTrigger<TOptions>(
             this ChangeTokenProducerBuilder builder,
             IOptionsMonitor<TOptions> monitor,
             string optionsName = "",
-            Action<TOptions, string, Action> onOptionsChange = null) => builder.IncludeSubscribingHandlerTrigger((trigger) => monitor.OnChange((o, n) =>
+            Action<TOptions, string, Action> onOptionsChange = null) => builder.IncludeDeferredSubscribingHandlerTrigger((trigger) => monitor.OnChange((o, n) =>
     {
-        if (!string.IsNullOrEmpty(optionsName))
+        if (optionsName != null)
         {
             if (!n.Equals(optionsName, StringComparison.InvariantCulture))
             {
@@ -49,6 +66,21 @@ namespace Microsoft.Extensions.Primitives
         }
         onOptionsChange.Invoke(o, n, trigger);
     }));
+
+        public static ChangeTokenProducerBuilder IncludeOptionsChangeTrigger<TOptions>(
+           this ChangeTokenProducerBuilder builder,
+           IOptionsMonitor<TOptions> monitor,
+           Action<TOptions, string, Action> onOptionsChange = null) => builder.IncludeDeferredSubscribingHandlerTrigger((trigger) => monitor.OnChange((o, n) =>
+           {
+               if (onOptionsChange == null)
+               {
+                   trigger?.Invoke();
+                   return;
+               }
+               onOptionsChange.Invoke(o, n, trigger);
+           }));
+
+
 
 
     }
