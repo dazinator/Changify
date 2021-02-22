@@ -225,6 +225,11 @@ These let you also include Configuration Reloads, or Options Monitor changes mor
  .IncludeOptionsChangeTrigger<MyOptions>(monitor, (opts, name, trigger)=>{ trigger(); }) // call the trigger if you want.
 ```
 
+If you don't have the `IOptionsMonitor' instance handy, but you have the `IServiceProvider` - as often might be the case in startup logic, you can use the convience overloads on all of the aboce that takes the IServiceProvider rather than the options monitor.
+
+```csharp
+.IncludeOptionsChangeTrigger<MyOptions>(sp)  // fires whenever any change for MyOptions occurs
+```
 ## Changify.Configuration
 
 .IncludeConfigurationReloads(config); // if the config reloads..you guessed it?
