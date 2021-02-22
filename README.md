@@ -49,7 +49,7 @@ Stay tuned however, because this is just one type of trigger and there are a lot
 
 When you `Build` the producer, you may notice you get an `out` parameter which is an `IDisposable`.
 
-```
+```csharp
  Func<IChangeToken> tokenProducer = new ChangeTokenProducerBuilder()
                                     .IncludeTrigger(out triggerX)
                                     .IncludeTrigger(out triggerY)
