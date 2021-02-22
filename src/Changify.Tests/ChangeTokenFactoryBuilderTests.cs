@@ -171,7 +171,7 @@ namespace Tests
             Assert.True(signalled);
             signalled = false;
 
-            await Task.Delay(500);
+            await Task.Delay(700);
             Assert.True(signalled);
         }
 
