@@ -67,16 +67,16 @@ namespace Microsoft.Extensions.Primitives
         /// which is a Noop token to avoid null ref exceptions.
         /// </summary>
         /// <param name="trigger"></param>
-        /// <param name="dispose">If true (default) then when issuing a new token, will dispose of the previous one if its IDisposable.</param>
+        /// <param name="disposePreviousChangeTokens">If true (default) then when issuing a new token, will dispose of the previous token if its IDisposable.</param>
         /// <returns></returns>
-        public ChangeTokenProducerBuilder Include(Func<IChangeToken> changeToken, bool dispose = true)
+        public ChangeTokenProducerBuilder Include(Func<IChangeToken> changeToken, bool disposePreviousChangeTokens = true)
         {
             IChangeToken currentToken = null;
             IChangeToken result()
             {
                 // consumer is asking for a new token, any previous token is dead.                 
                 var previous = Interlocked.Exchange(ref currentToken, changeToken() ?? EmptyChangeToken.Instance);
-                if (dispose && previous is IDisposable disposable)
+                if (disposePreviousChangeTokens && previous is IDisposable disposable)
                 {
                     disposable?.Dispose();
                 }
@@ -86,6 +86,36 @@ namespace Microsoft.Extensions.Primitives
             Factories.Add(result);
             return this;
         }
+
+        /// <summary>
+        /// Inlcude your own change token producer in the composite. 
+        /// If your <see cref="Func{IChangeToken}"/> at any point returns null, 
+        /// then an <see cref="EmptyChangeToken"/> will be returned to the consumer,
+        /// which is a Noop token to avoid null ref exceptions.
+        /// </summary>
+        /// <param name="invokedOnProducerDispose">When this token producer is disposed, this action will be called, and is your chance to also dispose of your own change token producer resources if you no longer need them.</param>
+        /// <param name="disposePreviousChangeTokens">If true (default) then when issuing a new token, will dispose of the previous token if its IDisposable.</param>
+        /// <returns></returns>
+        public ChangeTokenProducerBuilder Include(Func<IChangeToken> changeToken, Action invokedOnProducerDispose, bool disposePreviousChangeTokens = true)
+        {
+            IChangeToken currentToken = null;
+            _disposables.Add(new InvokeOnDispose(invokedOnProducerDispose));
+
+            IChangeToken result()
+            {
+                // consumer is asking for a new token, any previous token is dead.                 
+                var previous = Interlocked.Exchange(ref currentToken, changeToken() ?? EmptyChangeToken.Instance);
+                if (disposePreviousChangeTokens && previous is IDisposable disposable)
+                {
+                    disposable?.Dispose();
+                }
+                return currentToken;
+            }
+
+            Factories.Add(result);
+            return this;
+        }
+
 
         /// <summary>
         /// Inlcude your own change token's in the composite that are generated
