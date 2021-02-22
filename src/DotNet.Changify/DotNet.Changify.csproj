@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0;netstandard2.1;net50</TargetFrameworks>
-    <PackageId>Dazinator.DotNet.Changify</PackageId>
+    <PackageId>Changify</PackageId>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(TargetFramework)'=='netstandard2.0'">
