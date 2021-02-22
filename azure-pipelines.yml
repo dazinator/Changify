@@ -33,12 +33,12 @@ steps:
 - script: dotnet tool install -g dotnet-format
   displayName: Install dotnet-format
   
-- script: dotnet-format -w "$(Build.SourcesDirectory)/src" -v normal --dry-run --check
+- script: dotnet-format -w "$(Build.SourcesDirectory)/src" -v normal --check
   displayName: Formatting Check
 
 - task: NuGetToolInstaller@1
   inputs:
-    versionSpec: '5.1.0' 
+    versionSpec: '5.8.0' 
 
 - task: DotNetCoreCLI@2
   displayName: Restore
