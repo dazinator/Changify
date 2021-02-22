@@ -18,7 +18,7 @@ Example:
             Action triggerX = null;
             Action triggerY = null;
 
-            Func<IChangeToken> tokenProducer = new CompositeChangeTokenFactoryBuilder()
+            Func<IChangeToken> tokenProducer = new ChangeTokenProducerBuilder()
                                     .IncludeTrigger(out triggerX)
                                     .IncludeTrigger(out triggerY)
                                     .Build(out var producerLifetime);
@@ -48,7 +48,7 @@ As you can see, suppose in this case you needed to signal the consumer if either
 When you `Build` the producer, you may notice you get an `out` parameter which is an `IDisposable`.
 
 ```
- Func<IChangeToken> tokenProducer = new CompositeChangeTokenFactoryBuilder()
+ Func<IChangeToken> tokenProducer = new ChangeTokenProducerBuilder()
                                     .IncludeTrigger(out triggerX)
                                     .IncludeTrigger(out triggerY)
                                     .Build(out var producerLifetime);
@@ -175,7 +175,7 @@ Just showing the api surface of the builder, and showing the async task trigger 
                                                         .BuildServiceProvider()
                                                         .GetRequiredService<IOptionsMonitor<FooOptions>>();
 
-            Func<IChangeToken> tokenProducer = new CompositeChangeTokenFactoryBuilder()
+            Func<IChangeToken> tokenProducer = new ChangeTokenProducerBuilder()
                                     .IncludeTrigger(out triggerX)
                                     .IncludeTrigger(out triggerY)
                                     .Include(() => new TriggerChangeToken())

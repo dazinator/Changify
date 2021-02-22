@@ -16,7 +16,7 @@ namespace Tests
         [Fact]
         public void EmptyBuilder_Builds_EmptyChangeTokenFactory()
         {
-            var sut = new CompositeChangeTokenFactoryBuilder();
+            var sut = new ChangeTokenProducerBuilder();
             var factory = sut.Build(out var lifetime);
 
             Assert.NotNull(factory);
@@ -31,7 +31,7 @@ namespace Tests
         [Fact]
         public void Include_ChangeToken()
         {
-            var sut = new CompositeChangeTokenFactoryBuilder();
+            var sut = new ChangeTokenProducerBuilder();
             TriggerChangeToken token = null;
             var factory = sut.Include(() =>
             {
@@ -58,7 +58,7 @@ namespace Tests
         [Fact]
         public void Include_ManyChangeTokens_SignallingAny_SignalsConsumedToken()
         {
-            var sut = new CompositeChangeTokenFactoryBuilder();
+            var sut = new ChangeTokenProducerBuilder();
 
             var tokensProduced = new List<TriggerChangeToken>();
 
@@ -100,7 +100,7 @@ namespace Tests
             Action triggerX = null;
             Action triggerY = null;
 
-            Func<IChangeToken> tokenProducer = new CompositeChangeTokenFactoryBuilder()
+            Func<IChangeToken> tokenProducer = new ChangeTokenProducerBuilder()
                                     .IncludeTrigger(out triggerX)
                                     .IncludeTrigger(out triggerY)
                                     .Build(out var lifetime);
@@ -143,7 +143,7 @@ namespace Tests
                                                         .BuildServiceProvider()
                                                         .GetRequiredService<IOptionsMonitor<FooOptions>>();
 
-            Func<IChangeToken> tokenProducer = new CompositeChangeTokenFactoryBuilder()
+            Func<IChangeToken> tokenProducer = new ChangeTokenProducerBuilder()
                                     .IncludeTrigger(out triggerX)
                                     .IncludeTrigger(out triggerY)
                                     .Include(() => new TriggerChangeToken())

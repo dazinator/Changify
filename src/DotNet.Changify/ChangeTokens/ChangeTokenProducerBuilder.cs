@@ -5,12 +5,12 @@ namespace Microsoft.Extensions.Primitives
     using System.Threading;
     using System.Threading.Tasks;
 
-    public class CompositeChangeTokenFactoryBuilder
+    public class ChangeTokenProducerBuilder
     {
 
         private readonly List<IDisposable> _disposables = new List<IDisposable>();
 
-        public CompositeChangeTokenFactoryBuilder()
+        public ChangeTokenProducerBuilder()
         {
 
         }
@@ -69,7 +69,7 @@ namespace Microsoft.Extensions.Primitives
         /// <param name="trigger"></param>
         /// <param name="dispose">If true (default) then when issuing a new token, will dispose of the previous one if its IDisposable.</param>
         /// <returns></returns>
-        public CompositeChangeTokenFactoryBuilder Include(Func<IChangeToken> changeToken, bool dispose = true)
+        public ChangeTokenProducerBuilder Include(Func<IChangeToken> changeToken, bool dispose = true)
         {
             IChangeToken currentToken = null;
             IChangeToken result()
@@ -105,7 +105,7 @@ namespace Microsoft.Extensions.Primitives
         /// </summary>
         /// <param name="trigger"></param>
         /// <returns></returns>
-        public CompositeChangeTokenFactoryBuilder IncludeCancellationTokens(Func<CancellationToken> cancellationTokenFactory)
+        public ChangeTokenProducerBuilder IncludeCancellationTokens(Func<CancellationToken> cancellationTokenFactory)
         {
 
             IChangeToken factory()
@@ -139,7 +139,7 @@ namespace Microsoft.Extensions.Primitives
         /// </summary>
         /// <param name="trigger"></param>
         /// <returns></returns>
-        public CompositeChangeTokenFactoryBuilder IncludeTrigger(out Action trigger)
+        public ChangeTokenProducerBuilder IncludeTrigger(out Action trigger)
         {
             TriggerChangeToken currentToken = null;
             IChangeToken result()
@@ -164,7 +164,7 @@ namespace Microsoft.Extensions.Primitives
         /// </summary>
         /// <param name="registerListener"></param>
         /// <returns></returns>
-        public CompositeChangeTokenFactoryBuilder IncludeDeferredTrigger(Action<Action> subscribeDelegate)
+        public ChangeTokenProducerBuilder IncludeDeferredTrigger(Action<Action> subscribeDelegate)
         {
             TriggerChangeToken currentToken = null;
 
@@ -200,7 +200,7 @@ namespace Microsoft.Extensions.Primitives
         /// </summary>
         /// <param name="registerListener"></param>
         /// <returns></returns>
-        public CompositeChangeTokenFactoryBuilder IncludeDeferredAsyncTrigger(Func<Action, Task> callback)
+        public ChangeTokenProducerBuilder IncludeDeferredAsyncTrigger(Func<Action, Task> callback)
         {
             TriggerChangeToken currentToken = null;
 
@@ -238,7 +238,7 @@ namespace Microsoft.Extensions.Primitives
         /// </summary>
         /// <param name="registerListener"></param>
         /// <returns></returns>
-        public CompositeChangeTokenFactoryBuilder IncludeSubscribingHandlerTrigger(Func<Action, IDisposable> subscribeDelegate)
+        public ChangeTokenProducerBuilder IncludeSubscribingHandlerTrigger(Func<Action, IDisposable> subscribeDelegate)
         {
             TriggerChangeToken currentToken = null;
 
@@ -276,7 +276,7 @@ namespace Microsoft.Extensions.Primitives
         /// </summary>
         /// <param name="registerListener"></param>
         /// <returns></returns>
-        public CompositeChangeTokenFactoryBuilder IncludeResubscribingHandlerTrigger(Func<Action, IDisposable> registerListener)
+        public ChangeTokenProducerBuilder IncludeResubscribingHandlerTrigger(Func<Action, IDisposable> registerListener)
         {
 
             TriggerChangeToken currentToken = null;
@@ -311,7 +311,7 @@ namespace Microsoft.Extensions.Primitives
         /// this will be tracked for you and disposed when the factory is disposed. Otherwise you can take ownersip of this and ensure it is disposed in order
         /// to remove the handler when you are done with it.
         /// </summary>
-        public CompositeChangeTokenFactoryBuilder IncludeEventHandlerTrigger<TEventArgs>(
+        public ChangeTokenProducerBuilder IncludeEventHandlerTrigger<TEventArgs>(
             Action<EventHandler<TEventArgs>> addHandler,
             Action<EventHandler<TEventArgs>> removeHandler,
             Action<IDisposable> ownsHandlerLifetime = null)
