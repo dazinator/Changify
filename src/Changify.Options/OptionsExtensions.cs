@@ -24,7 +24,7 @@ namespace Microsoft.Extensions.Primitives
               string optionsName = "",
               Func<TOptions, string, bool> shouldTrigger = null) => IncludeOptionsChangeTrigger(builder, monitor, optionsName, (a, b, c) =>
                                                                               {
-                                                                                  if (shouldTrigger(a, b))
+                                                                                  if (shouldTrigger?.Invoke(a, b) ?? true)
                                                                                   {
                                                                                       c?.Invoke();
                                                                                   }
