@@ -69,7 +69,7 @@ It's worth mentioning that most of the api's have a "deferred" flavour.
 
 - Deferred: The callback you supply won't be executed until the very first token is consumed.
 
-i.e the logic is deferred until first use of a token.
+i.e the logic is deferred until first consumption of a token.
 
 If you don't use the `deferred` version of the api, then the callback you supply is executed immediately instead of inline with consumption of the first token.
 
@@ -156,6 +156,24 @@ This process repeats.
 .IncludeResubscribingHandlerTrigger((trigger) => monitor.OnChange((o, n) => trigger()))
 ```
 
+8. Include change tokens that are signalled according to a supplied delay per token.
+
+```csharp
+ .IncludeDelayTokenProducer(async () => // configure a delay for the current change token to be signalled - this delegate fires for each new token produced.                                    
+                                        new DelayInfo(TimeSpan.FromSeconds(10), CancellationToken.None))
+
+```
+
+9. Include change tokens that are signalled according to a supplied datetime per token.
+
+```csharp
+ .IncludeDatetimeScheduledTokenProducer(async () => {
+                                        // return a datetime for when the current change token is to be signalled - this delegate fires for each new token produced.  
+                                        return DateTime.UtcNow.AddSeconds(25);
+                                    }, CancellationToken.None)
+
+```
+
 ### Just showing the api surface..
 
 Just showing the api surface of the builder, and showing the async task trigger in action too..
@@ -196,6 +214,12 @@ Just showing the api surface of the builder, and showing the async task trigger 
                                         removeHandler: (handler) => SomeEvent -= handler)
                                     .IncludeResubscribingHandlerTrigger((trigger) => monitor.OnChange((o, n) => trigger()))
                                     .IncludeDeferredResubscribingHandlerTrigger((trigger) => monitor.OnChange((o, n) => trigger()))
+                                    .IncludeDelayTokenProducer(async () =>                                         // configure a delay for the current change token to be signalled - this delegate fires each time a new token is produced.                                    
+                                        new DelayInfo(TimeSpan.FromSeconds(10), CancellationToken.None))
+                                    .IncludeDatetimeScheduledTokenProducer(async () => {
+                                        // return a datetime for when the current change token is to be signalled - this delegate fires each time a new token is produced.     
+                                        return DateTime.UtcNow.AddSeconds(25);
+                                    }, CancellationToken.None)
                                     .Build(out var producerLifetime);
 
             var signalled = false;

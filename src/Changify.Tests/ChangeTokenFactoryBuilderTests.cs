@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Xunit;
+using static Changify.DelayChangeTokenProducer;
 
 namespace Tests
 {
@@ -162,6 +163,12 @@ namespace Tests
                                         (disposable) => subscription = disposable)
                                     .IncludeDeferredSubscribingHandlerTrigger((trigger) => monitor.OnChange((o, n) => trigger()))
                                     .IncludeDeferredResubscribingHandlerTrigger((trigger) => monitor.OnChange((o, n) => trigger()))
+                                    .IncludeDelayTokenProducer(async () =>                                         // configure a delay for the current change token to be signalled - this delegate fires each time a new token is produced.                                    
+                                        new DelayInfo(TimeSpan.FromSeconds(10), CancellationToken.None))
+                                    .IncludeDatetimeScheduledTokenProducer(async () => {
+                                        // return a datetime for when the current change token is to be signalled - this delegate fires each time a new token is produced.     
+                                        return DateTime.UtcNow.AddSeconds(25);
+                                    }, CancellationToken.None)
                                     .Build(out var producerLifetime);
 
             var signalled = false;

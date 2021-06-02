@@ -17,4 +17,8 @@
     <PackageReference Include="Microsoft.Extensions.Primitives" Version="5.0.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Producers\" />
+  </ItemGroup>
+
 </Project>
