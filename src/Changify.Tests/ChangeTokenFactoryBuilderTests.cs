@@ -165,7 +165,8 @@ namespace Tests
                                     .IncludeDeferredResubscribingHandlerTrigger((trigger) => monitor.OnChange((o, n) => trigger()))
                                     .IncludeDelayTokenProducer(async () =>                                         // configure a delay for the current change token to be signalled - this delegate fires each time a new token is produced.                                    
                                         new DelayInfo(TimeSpan.FromSeconds(10), CancellationToken.None))
-                                    .IncludeDatetimeScheduledTokenProducer(async () => {
+                                    .IncludeDatetimeScheduledTokenProducer(async () =>
+                                    {
                                         // return a datetime for when the current change token is to be signalled - this delegate fires each time a new token is produced.     
                                         return DateTime.UtcNow.AddSeconds(25);
                                     }, CancellationToken.None)

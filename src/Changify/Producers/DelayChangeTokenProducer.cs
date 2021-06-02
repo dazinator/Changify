@@ -26,7 +26,7 @@ namespace Changify
                 return EmptyChangeToken.Instance;
             }
 
-           // var delay = await delayTask;
+            // var delay = await delayTask;
 
             var token = new TriggerChangeToken();
 

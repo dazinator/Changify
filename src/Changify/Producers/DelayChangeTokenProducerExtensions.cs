@@ -21,7 +21,7 @@ namespace Microsoft.Extensions.Primitives
             if (builder is null)
             {
                 throw new ArgumentNullException(nameof(builder));
-            }                     
+            }
 
             IChangeTokenProducer producer = new DelayChangeTokenProducer(async () => await getNextDelayInfo());
             return builder.Include(producer);

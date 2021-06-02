@@ -21,7 +21,7 @@ namespace Tests
                 return delayInfo;
             });
 
-            bool signalled = false;          
+            bool signalled = false;
             var token = producer.Produce();
             var listening = token.RegisterChangeCallback((s) =>
             {
