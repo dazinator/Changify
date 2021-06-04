@@ -3,7 +3,7 @@ namespace Tests
     using System;
     using System.Threading.Tasks;
 
-    public class TestLockProvider
+    public class TestLockProvider : IResourceProvider
     {
         private readonly Action _onLockDisposed;
         private IDisposable _acquiredLock = null;

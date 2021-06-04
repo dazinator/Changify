@@ -111,6 +111,11 @@ namespace Changify
                         _currentToken?.Dispose();
                         _currentToken = null;
                     }
+
+                    if (_innerProducer is IDisposable innerDisposable)
+                    {
+                        innerDisposable.Dispose();
+                    }
                 }
 
                 // TODO: free unmanaged resources (unmanaged objects) and override finalizer

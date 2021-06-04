@@ -170,6 +170,11 @@ namespace Tests
                                         // return a datetime for when the current change token is to be signalled - this delegate fires each time a new token is produced.     
                                         return DateTime.UtcNow.AddSeconds(25);
                                     }, CancellationToken.None)
+                                    .Build()
+                                    .FilterOnResourceAcquired(() => Task.FromResult<IDisposable>(EmptyDisposable.Instance), () =>
+                                    {
+                                        //_logger.Debug("Could not obtain resource so change ignored")
+                                    })
                                     .Build(out var producerLifetime);
 
             var signalled = false;

@@ -174,6 +174,36 @@ This process repeats.
 
 ```
 
+10. Filter changes, so that you only bother getting notified if some `IDisposable` resource can be acquired at the time, for example this could be a distributed lock.
+
+```
+ var producer = new ChangeTokenProducerBuilder()
+                .IncludeTrigger(out trigger)
+                .Build()
+                .FilterOnResourceAcquired(async () => await lockProvider.TryAcquireAsync(),
+                    () => _logger.Debug("Could not obtain resource so change ignored"))
+                .Build();
+```
+
+In the example above, it first builds a producer that will signal change tokens when the `trigger` is invoked.
+It then decorates that producer to build one that filters signalling based on whether the resource can be acquired.
+
+If we had this running on multiple web servers, and multiple users invoked the `trigger` in each of those seperate processes, and some other part of the application in those processes were consuming change tokens from this producer,
+then only one of the change token consumers in one of the processes would actually get notified of a change - assuming the resource being obtained was a distributed lock. The other processes would not be able to acquire the resource / lock and so
+the change notifications from the manual trigger would be filtered out and the duplicate change token consumers would remain oblivious. The second argument is a callback that will be called when the resource cannot be acquired, so you can log etc.
+
+Here are some notes:
+
+- Your delegate should return null if the resource cannot be acquired.
+- The `IDisposable` that is returned could represent a distributed lock for example.
+- The `IDisposable` that is returned is kept alive until:
+  - A callback is registered with the next `IChangeToken` that is consumed. At this point the previous `IChangeToken`is now obsolete and will be disposed, and the resource that was acquired for it will be disposed of.
+
+What this means is:
+
+- If you use `ChangeToken.OnChange` to consume tokens, the "onchange" callback you supply will be invoked whilst the `IDisposable` resource is acquired is being held. After your callback is executed, a callback is registered with a new token which makes the previous token obsolete, and at this point, the IDisposable resource will be disposed.
+- You can use the `WaitOneAsync` extension methods in this library to consume and async await single change token notification at a time. If you do this, once this async call completes, the IDisposable resource will be acquired and will remain alive until you next call `WaitOneAsync` again to consume the next token, which will make the previous token obsolete, disposing of the acuired resource. This means if you are awaiting on change tokens like this in a loop, you don't have to worry about disposing of acquired resources.
+
 ### Just showing the api surface..
 
 Just showing the api surface of the builder, and showing the async task trigger in action too..
@@ -219,7 +249,9 @@ Just showing the api surface of the builder, and showing the async task trigger 
                                     .IncludeDatetimeScheduledTokenProducer(async () => {
                                         // return a datetime for when the current change token is to be signalled - this delegate fires each time a new token is produced.     
                                         return DateTime.UtcNow.AddSeconds(25);
-                                    }, CancellationToken.None)
+                                    }, CancellationToken.None)                                    
+                                    .Build()
+                                    .FilterOnResourceAcquired(() => Task.FromResult<IDisposable>(EmptyDisposable.Instance), () => _logger.Debug("Could not obtain resource so change ignored"))
                                     .Build(out var producerLifetime);
 
             var signalled = false;

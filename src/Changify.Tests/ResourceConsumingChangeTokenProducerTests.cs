@@ -22,7 +22,7 @@ namespace Tests
 
             bool lockDisposed = false;
 
-            var suts = new List<ResourceConsumingChangeTokenProducer>();
+            var suts = new List<IChangeTokenProducer>();
             var triggers = new List<Action>();
 
             var testLockProvider = new TestLockProvider(() =>
@@ -31,7 +31,7 @@ namespace Tests
             });
 
             var sutTasks = new List<Task>();
-            ResourceConsumingChangeTokenProducer signalledSut = null;
+            IChangeTokenProducer signalledSut = null;
             /// Create multiple token producers that will each try to acquire the lock when inner token signalled. Only the one that gets the lock
             /// should then signal.
             for (int i = 0; i < concurrentCount; i++)
@@ -61,9 +61,10 @@ namespace Tests
                 }));
             ;
             await Task.WhenAll(triggerTasks);
+
             var sutTasksWithTimeout = new List<Task>();
             sutTasksWithTimeout.AddRange(sutTasks);
-            sutTasksWithTimeout.Add(Task.Delay(TimeSpan.FromSeconds(10)));
+            sutTasksWithTimeout.Add(Task.Delay(TimeSpan.FromSeconds(20)));
 
             await Task.WhenAny(sutTasksWithTimeout);
 
@@ -73,28 +74,23 @@ namespace Tests
             Assert.True(ranCounter.IsSet);
             Assert.True(couldNotRunCounter.IsSet);
 
-            // when we wait for the next token, it should release the lock.
-            _ = signalledSut.WaitOneAsync();
+            // when we wait for the next token, it shoud make the previous token obsolete, which should release the lock / resource.
+            Assert.False(lockDisposed);
+            _ = signalledSut.WaitOneAsync(); // we don't need this task to finish, as simply by listening to next token it should trigger the dispose.
 
+            await Task.Delay(100);
             Assert.True(lockDisposed);
         }
 
-        private static ResourceConsumingChangeTokenProducer CreateSut(CountdownEvent couldNotRunCounter, TestLockProvider lockProvider, out Action trigger)
+        private static IChangeTokenProducer CreateSut(CountdownEvent couldNotRunCounter, TestLockProvider lockProvider, out Action trigger)
         {
-            var innerBuilder = new ChangeTokenProducerBuilder();
-            innerBuilder.IncludeTrigger(out trigger);
-            var innerProducer = innerBuilder.Build();
-
-            var sut = new ResourceConsumingChangeTokenProducer(innerProducer, acquire: async () =>
-            {
-                var acquiredLock = await lockProvider.TryAcquireAsync();
-                return acquiredLock;
-
-            }, () =>
-            {
-                couldNotRunCounter.Signal();
-            });
-            return sut;
+            var producer = new ChangeTokenProducerBuilder()
+                .IncludeTrigger(out trigger)
+                .Build()
+                .FilterOnResourceAcquired(async () => await lockProvider.TryAcquireAsync(), () => couldNotRunCounter.Signal())
+                .Build();
+           
+            return producer;
         }
     }
 }
