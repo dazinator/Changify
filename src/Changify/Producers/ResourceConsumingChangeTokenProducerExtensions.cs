@@ -24,7 +24,7 @@ namespace Microsoft.Extensions.Primitives
                 throw new ArgumentNullException(nameof(inner));
             }
 
-          //  var inner = builder.Build();
+            //  var inner = builder.Build();
             var newProducer = new ResourceConsumingChangeTokenProducer(inner, acquire: acquireResourceAsync, onAcquireFailed);
             var newBuilder = new ChangeTokenProducerBuilder().Include(newProducer);
             return newBuilder;

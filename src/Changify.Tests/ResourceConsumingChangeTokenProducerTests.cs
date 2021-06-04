@@ -89,7 +89,7 @@ namespace Tests
                 .Build()
                 .FilterOnResourceAcquired(async () => await lockProvider.TryAcquireAsync(), () => couldNotRunCounter.Signal())
                 .Build();
-           
+
             return producer;
         }
     }
