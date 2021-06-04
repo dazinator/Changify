@@ -1,135 +1,100 @@
 namespace Tests
 {
     using System;
+    using System.Collections.Generic;
+    using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
     using Changify;
     using Microsoft.Extensions.Primitives;
-    using Microsoft.VisualStudio.TestPlatform.CommunicationUtilities.Interfaces;
     using Xunit;
-    using static Changify.DelayChangeTokenProducer;
 
-    public class ResourceAcquiringChangeTokenProducerTests
+    public partial class ResourceConsumingChangeTokenProducerTests
     {
 
-        public class TestResourceLock : IDisposable
+        [Fact]
+        public async Task Only_Signals_When_Resource_Acquired()
         {
-            private bool _disposedValue;
-            private readonly Action _onDispose;
 
-            public TestResourceLock(Action onDispose)
+            int concurrentCount = 3;
+            var couldNotRunCounter = new CountdownEvent(concurrentCount - 1);
+            var ranCounter = new CountdownEvent(1);
+
+            bool lockDisposed = false;
+
+            var suts = new List<ResourceConsumingChangeTokenProducer>();
+            var triggers = new List<Action>();
+
+            var testLockProvider = new TestLockProvider(() =>
             {
-                _onDispose = onDispose;
+                lockDisposed = true;
+            });
+
+            var sutTasks = new List<Task>();
+            ResourceConsumingChangeTokenProducer signalledSut = null;
+            /// Create multiple token producers that will each try to acquire the lock when inner token signalled. Only the one that gets the lock
+            /// should then signal.
+            for (int i = 0; i < concurrentCount; i++)
+            {
+                var sut = CreateSut(couldNotRunCounter, testLockProvider, out var trigger);
+                suts.Add(sut);
+                triggers.Add(trigger);
+
+                var sutTask = sut.WaitOneAsync().ContinueWith(async (t) =>
+                 {
+                     // We are expecting only one task to enter here, as this runs after a token has been signalled,
+                     // // and the only one that should be signalled, is the one that can acquire the lock.
+                     signalledSut = sut;
+                     ranCounter.Signal();
+                     await Task.Delay(3000); // simulate some work that we would do after being signalled.
+                 });
+
+                sutTasks.Add(sutTask);
             }
 
-            protected virtual void Dispose(bool disposing)
-            {
-                if (!_disposedValue)
+
+            /// Trigger all the inner token producers, this will cause our sut's to all try and acquire the lock at the same time.
+            var triggerTasks = triggers.Select(t => Task.Run(
+                () =>
                 {
-                    if (disposing)
-                    {
-                        _onDispose?.Invoke();
-                        // TODO: dispose managed state (managed objects)
-                    }
+                    t();
+                }));
+            ;
+            await Task.WhenAll(triggerTasks);
+            var sutTasksWithTimeout = new List<Task>();
+            sutTasksWithTimeout.AddRange(sutTasks);
+            sutTasksWithTimeout.Add(Task.Delay(TimeSpan.FromSeconds(10)));
 
-                    // TODO: free unmanaged resources (unmanaged objects) and override finalizer
-                    // TODO: set large fields to null
-                    _disposedValue = true;
-                }
-            }
+            await Task.WhenAny(sutTasksWithTimeout);
 
-            // // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
-            // ~TestResourceLock()
-            // {
-            //     // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-            //     Dispose(disposing: false);
-            // }
 
-            public void Dispose()
-            {
-                // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-                Dispose(disposing: true);
-                GC.SuppressFinalize(this);
-            }
+            // await Task.Delay(5000);
+
+            Assert.True(ranCounter.IsSet);
+            Assert.True(couldNotRunCounter.IsSet);
+
+            // when we wait for the next token, it should release the lock.
+            _ = signalledSut.WaitOneAsync();
+
+            Assert.True(lockDisposed);
         }
 
-        [Fact]
-        public async Task Signals_When_Lock_Aquired()
+        private static ResourceConsumingChangeTokenProducer CreateSut(CountdownEvent couldNotRunCounter, TestLockProvider lockProvider, out Action trigger)
         {
-
             var innerBuilder = new ChangeTokenProducerBuilder();
-            innerBuilder.IncludeTrigger(out var triggerA);
+            innerBuilder.IncludeTrigger(out trigger);
             var innerProducer = innerBuilder.Build();
 
-            var distributedLock = new TestResourceLock(onDispose: () =>
+            var sut = new ResourceConsumingChangeTokenProducer(innerProducer, acquire: async () =>
             {
+                var acquiredLock = await lockProvider.TryAcquireAsync();
+                return acquiredLock;
 
+            }, () =>
+            {
+                couldNotRunCounter.Signal();
             });
-
-            TestResourceLock currentDistributedLock = null;
-
-            var sut = new ResourceAquiringChangeTokenProducer(innerProducer, acquire: async () =>
-            {
-                var replaced = Interlocked.CompareExchange(ref currentDistributedLock, distributedLock, null);
-                if (replaced == null)
-                {
-                    // successfully obtained the distributed lock.
-                    return distributedLock;
-                }
-                // couldn't acquire the lock, some other process / thread already grabbed it..
-                return null;
-            });
-
-
-            var signalCount = 0;
-            var waitForSignalTask = sut.WaitOneAsync().ContinueWith((t) =>
-            {
-                Interlocked.Increment(ref signalCount);               
-            });
-
-            await Task.Delay(100);
-            triggerA();
-
-            await waitForSignalTask;
-            Assert.Equal(signalCount, 1);
-
-
-
-            int counter = 0;
-            var producer = new DelayChangeTokenProducer(async () =>
-            {
-                counter = counter + 1;
-                var delayInfo = new DelayInfo(TimeSpan.FromMilliseconds(200), CancellationToken.None);
-                return delayInfo;
-            });
-
-            bool signalled = false;
-            var token = producer.Produce();
-            var listening = token.RegisterChangeCallback((s) =>
-            {
-                signalled = true;
-            }, null);
-
-            await Task.Delay(300);
-            Assert.True(signalled);
-
-            listening.Dispose();
-
-
-            signalled = false;
-            token = producer.Produce();
-            listening = token.RegisterChangeCallback((s) =>
-            {
-                signalled = true;
-            }, null);
-
-            await Task.Delay(300);
-            Assert.True(signalled);
-
-            Assert.Equal(2, counter);
-
-            listening.Dispose();
+            return sut;
         }
-
     }
 }

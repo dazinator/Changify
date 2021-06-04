@@ -26,7 +26,13 @@ namespace Microsoft.Extensions.Primitives
                 tcs.SetResult(s as TState);
             }, state);
 
-            return (Task<TState>)tcs.Task.ContinueWith(a => handlerLifetime.Dispose());
+            var result = tcs.Task.ContinueWith<TState>(a =>
+            {
+                handlerLifetime?.Dispose();
+                return a.Result;
+            });
+
+            return result;
         }
 
         /// <summary>
@@ -57,7 +63,13 @@ namespace Microsoft.Extensions.Primitives
                 tcs.SetResult(s as TState);
             }, state);
 
-            return (Task<TState>)tcs.Task.ContinueWith(a => handlerLifetime.Dispose());
+
+            var result = tcs.Task.ContinueWith<TState>(a =>
+            {
+                handlerLifetime?.Dispose();
+                return a.Result;
+            });
+            return result;
         }
 
         public static Task WaitOneAsync(this IChangeTokenProducer changeTokenProducer) => WaitOneAsync<object>(changeTokenProducer, null);

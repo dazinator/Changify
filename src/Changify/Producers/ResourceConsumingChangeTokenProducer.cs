@@ -6,7 +6,7 @@ namespace Changify
     using Microsoft.Extensions.Primitives;
 
     /// <summary>
-    /// A producer of <see cref="IChangeToken"/>'s that wrap an inner change token that will only pass through a signal if an <see cref="IDisposable"/> resource can successfully be aquired, such as a distributed lock etc.
+    /// A producer of <see cref="IChangeToken"/>'s that wraps an inner change token that will only pass through a signal if an <see cref="IDisposable"/> resource can successfully be aquired, such as a distributed lock etc.
     /// The disposable resource is disposed when the next token is requested.
     /// </summary>
     /// <remarks>
@@ -15,40 +15,49 @@ namespace Changify
     /// You can use this producer to wrap the inner change tokens, so that the process that successfully aquires the distributed lock will have its change token signalled, where as the other processes that cannot aquire the lock, do not.
     /// This results in a token that should only get signalled in one of the processes and not the others.
     /// </remarks>
-    public class ResourceAquiringChangeTokenProducer : IDisposableChangeTokenProducer
+    public class ResourceConsumingChangeTokenProducer : IDisposableChangeTokenProducer
     {
         private readonly IChangeTokenProducer _innerProducer;
         private readonly Func<Task<IDisposable>> _acquire;
+        private readonly Action _onAcquireFailed;
 
-        public ResourceAquiringChangeTokenProducer(IChangeTokenProducer innerProducer, Func<Task<IDisposable>> acquire)
+        public ResourceConsumingChangeTokenProducer(
+            IChangeTokenProducer innerProducer,
+            Func<Task<IDisposable>> acquire,
+            Action onAcquireFailed)
         {
             _innerProducer = innerProducer;
-            _acquire = acquire;            
+            _acquire = acquire;
+            _onAcquireFailed = onAcquireFailed;
         }
 
-        private IDisposable _lastResource = null;
         private bool _disposedValue;
         private Task innerListeningTask = null;
 
 
-        private DisposableResourceChangeToken _lastToken;
+        private ResourceConsumingChangeToken _currentToken = null;
 
         public IChangeToken Produce()
         {
 
-            DisposableResourceChangeToken currentToken = null;
-            DisposableResourceChangeToken result()
+            // return a token that will acquire a new resource when inner token is signalled.
+            // and will dispose of any previous tokens resource, when new token has first callback registration registered.
+
+            // this means, new token needs reference to old token so it can dispose of it once call back registered.
+
+
+
+            ResourceConsumingChangeToken getNewToken()
             {
                 // consumer is asking for a new token, any previous token is dead.
-              //  var innerToken = _innerProducer.Produce();
-               
-                var newToken = new DisposableResourceChangeToken();
-                var previous = Interlocked.Exchange(ref currentToken, newToken);
-                previous?.Dispose(); // ensures any previously acquired resource is disposed.
-                return currentToken; 
+                //  var innerToken = _innerProducer.Produce();
+                var newToken = new ResourceConsumingChangeToken();
+                var previousToken = Interlocked.Exchange(ref _currentToken, newToken);
+                newToken.PreviousToken = previousToken;
+                return newToken;
             }
-            var newToken = result();
-            if(innerListeningTask == null)
+            var newToken = getNewToken();
+            if (innerListeningTask == null)
             {
                 // Listen to inner tokens one at a time, each time a change is detected, try acquire the resource and if acquired, trigger our token.
                 // this will cause ChaneToken.OnChange() to obtain a new token by calling Produce() again, and we will dispose of the previous tokens resource.
@@ -56,43 +65,38 @@ namespace Changify
                 // FIX BY: When new token has a callback registered, dispose of previous tokens resource.
                 //    ChangeToken.OnChange registers callback on new tokens AFTER invoking the callback so this would work.
 
-                innerListeningTask = ListenOnInnerChangeAsync((resource) => currentToken.Trigger(resource));
-            }      
-                      
+                innerListeningTask = ListenOnInnerChangeAsync((resource) => _currentToken.Trigger(resource), _onAcquireFailed);
+            }
+
 
             return newToken;
         }
 
-        public async Task ListenOnInnerChangeAsync(Action<IDisposable> onResourceAcquired)
+        public async Task ListenOnInnerChangeAsync(Action<IDisposable> onResourceAcquired, Action onAcquireFailed)
         {
-            while(!_disposedValue)
+            while (!_disposedValue)
             {
                 // WaitOne might miss changes that happen before after it returns and before we call the next WaitOneAsync call..
                 // however for things like scheduled jobs, this is ok.
-                _ = _innerProducer.WaitOneAsync().ContinueWith(async (t) =>
+                await _innerProducer.WaitOneAsync();
+                var task = _acquire();
+                if (task == null)
                 {
-                    if (!t.IsCanceled)
-                    {
-                        var newResouce = await _acquire();
-                      
-                      //  _lastResource = newResouce;
-                        if (newResouce != null)
-                        {
-                            onResourceAcquired?.Invoke(newResouce);                           
-                        }
-                        else
-                        {
-                            // culd not acquire resource, change filtered out.
-                        }
-                    }
-                    else
-                    {
-                        // task to wait for inner change token to signal has been cancelled.
+                    throw new InvalidOperationException();
+                }
 
-                    }
-                });
+                var newResouce = await task;
+                if (newResouce != null)
+                {
+                    onResourceAcquired?.Invoke(newResouce);
+                }
+                else
+                {
+                    // culd not acquire resource, change filtered out.
+                    onAcquireFailed?.Invoke();
+                }
             }
-          
+
         }
 
         protected virtual void Dispose(bool disposing)
@@ -102,10 +106,10 @@ namespace Changify
                 if (disposing)
                 {
                     // TODO: dispose managed state (managed objects)
-                    if (_lastResource != null)
+                    if (_currentToken != null)
                     {
-                        _lastResource?.Dispose();
-                        _lastResource = null;
+                        _currentToken?.Dispose();
+                        _currentToken = null;
                     }
                 }
 
