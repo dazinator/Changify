@@ -145,6 +145,8 @@ namespace Tests
                                                         .BuildServiceProvider()
                                                         .GetRequiredService<IOptionsMonitor<FooOptions>>();
 
+            CountdownEvent manualTrigger = new CountdownEvent(2);
+
             Func<IChangeToken> tokenProducer = new ChangeTokenProducerBuilder()
                                     .IncludeTrigger(out triggerX)
                                     .IncludeTrigger(out triggerY)
@@ -155,8 +157,10 @@ namespace Tests
                                     {
                                         await Task.Delay(200);
                                         trigger();
+                                        manualTrigger.Signal();
                                         await Task.Delay(500);
                                         trigger();
+                                        manualTrigger.Signal();
                                     })
                                     .IncludeDeferredEventHandlerTrigger<string>(
                                         addHandler: (handler) => SomeEvent += handler,
@@ -182,13 +186,14 @@ namespace Tests
 
 
             var signalled = false;
-            ChangeToken.OnChange(tokenProducer, () => signalled = true);
+            ChangeToken.OnChange(tokenProducer,
+                () =>
+                {
+                    signalled = true;
+                });
 
-            await Task.Delay(200);
-            Assert.True(signalled);
-            signalled = false;
-
-            await Task.Delay(700);
+            manualTrigger.Wait(2000);
+            //await Task.Delay(300);
             Assert.True(signalled);
         }
 
