@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Formats.Asn1;
 using System.Linq.Expressions;
+using System.Reflection.Metadata.Ecma335;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -171,11 +172,14 @@ namespace Tests
                                         return DateTime.UtcNow.AddSeconds(25);
                                     }, CancellationToken.None)
                                     .Build()
-                                    .FilterOnResourceAcquired(() => Task.FromResult<IDisposable>(EmptyDisposable.Instance), () =>
+                                    .AndResourceAcquired(() => Task.FromResult<IDisposable>(EmptyDisposable.Instance), () =>
                                     {
                                         //_logger.Debug("Could not obtain resource so change ignored")
                                     })
+                                    .Build()
+                                    .AndTrueAsync(() => Task.FromResult(true))
                                     .Build(out var producerLifetime);
+
 
             var signalled = false;
             ChangeToken.OnChange(tokenProducer, () => signalled = true);

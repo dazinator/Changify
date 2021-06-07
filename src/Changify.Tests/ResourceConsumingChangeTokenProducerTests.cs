@@ -87,7 +87,7 @@ namespace Tests
             var producer = new ChangeTokenProducerBuilder()
                 .IncludeTrigger(out trigger)
                 .Build()
-                .FilterOnResourceAcquired(async () => await lockProvider.TryAcquireAsync(), () => couldNotRunCounter.Signal())
+                .AndResourceAcquired(async () => await lockProvider.TryAcquireAsync(), () => couldNotRunCounter.Signal())
                 .Build();
 
             return producer;

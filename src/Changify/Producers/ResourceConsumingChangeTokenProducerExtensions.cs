@@ -3,17 +3,16 @@ namespace Microsoft.Extensions.Primitives
     using System;
     using System.Threading.Tasks;
     using Changify;
-    using static Changify.DelayChangeTokenProducer;
 
     public static class ResourceConsumingChangeTokenProducerExtensions
     {
 
         /// <summary>
-        /// Include a producer that will filter out <see cref="IChangeToken"/> signals, if an `IDisposable` resource cannot successfully be acquired at the point a signal occurs.
+        /// A producer that wraps an inner producer, and will try to acquire an <see cref="IDisposable"/> resource when the inner producer signals. If it can't obtain the resource it won't signal a change token. If it can then it will. The resource is held until the token becomes obsolete.
         /// </summary>
         /// <param name="builder"></param>
         /// <returns></returns>
-        public static ChangeTokenProducerBuilder FilterOnResourceAcquired(
+        public static ChangeTokenProducerBuilder AndResourceAcquired(
           this IChangeTokenProducer inner,
           Func<Task<IDisposable>> acquireResourceAsync,
           Action onAcquireFailed

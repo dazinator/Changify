@@ -180,7 +180,7 @@ This process repeats.
  var producer = new ChangeTokenProducerBuilder()
                 .IncludeTrigger(out trigger)
                 .Build()
-                .FilterOnResourceAcquired(async () => await lockProvider.TryAcquireAsync(),
+                .AndResourceAcquired(async () => await lockProvider.TryAcquireAsync(),
                     () => _logger.Debug("Could not obtain resource so change ignored"))
                 .Build();
 ```
@@ -203,6 +203,14 @@ What this means is:
 
 - If you use `ChangeToken.OnChange` to consume tokens, the "onchange" callback you supply will be invoked whilst the `IDisposable` resource is acquired is being held. After your callback is executed, a callback is registered with a new token which makes the previous token obsolete, and at this point, the IDisposable resource will be disposed.
 - You can use the `WaitOneAsync` extension methods in this library to consume and async await single change token notification at a time. If you do this, once this async call completes, the IDisposable resource will be acquired and will remain alive until you next call `WaitOneAsync` again to consume the next token, which will make the previous token obsolete, disposing of the acuired resource. This means if you are awaiting on change tokens like this in a loop, you don't have to worry about disposing of acquired resources.
+
+11. Filter change token signals, so that only if an asynchronous check returns true, will the signal fire.
+
+```csharp
+
+.AndTrueAsync(async () => await SomethingThatReturnsABoolean());
+
+```
 
 ### Just showing the api surface..
 
@@ -251,8 +259,10 @@ Just showing the api surface of the builder, and showing the async task trigger 
                                         return DateTime.UtcNow.AddSeconds(25);
                                     }, CancellationToken.None)                                    
                                     .Build()
-                                    .FilterOnResourceAcquired(() => Task.FromResult<IDisposable>(EmptyDisposable.Instance), () => _logger.Debug("Could not obtain resource so change ignored"))
-                                    .Build(out var producerLifetime);
+                                    .AndResourceAcquired(() => Task.FromResult<IDisposable>(EmptyDisposable.Instance), () => _logger.Debug("Could not obtain resource so change ignored"))
+                                    .Build()
+                                    .AndTrueAsync(() => Task.FromResult(true))
+                                    .Build(out var producerLifetime)
 
             var signalled = false;
             ChangeToken.OnChange(tokenProducer, () => signalled = true);
