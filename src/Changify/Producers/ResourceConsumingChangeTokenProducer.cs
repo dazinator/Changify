@@ -32,9 +32,6 @@ namespace Changify
         }
 
         private bool _disposedValue;
-        private Task innerListeningTask = null;
-
-
         private ResourceConsumingChangeToken _currentToken = null;
 
         public IChangeToken Produce()
@@ -54,26 +51,21 @@ namespace Changify
                 var newToken = new ResourceConsumingChangeToken();
                 var previousToken = Interlocked.Exchange(ref _currentToken, newToken);
                 newToken.PreviousToken = previousToken;
+                // listen until inner signal produces a successful result, then trigger this token.
+                _ = ListenOnInnerChangeAsync((resource) =>
+                {
+                    newToken.Trigger(resource);
+                }, _onAcquireFailed);
                 return newToken;
             }
+
             var newToken = getNewToken();
-            if (innerListeningTask == null)
-            {
-                // Listen to inner tokens one at a time, each time a change is detected, try acquire the resource and if acquired, trigger our token.
-                // this will cause ChaneToken.OnChange() to obtain a new token by calling Produce() again, and we will dispose of the previous tokens resource.
-                // whch is nto what we want:TODO: FIX
-                // FIX BY: When new token has a callback registered, dispose of previous tokens resource.
-                //    ChangeToken.OnChange registers callback on new tokens AFTER invoking the callback so this would work.
-
-                innerListeningTask = ListenOnInnerChangeAsync((resource) => _currentToken.Trigger(resource), _onAcquireFailed);
-            }
-
-
             return newToken;
         }
 
         public async Task ListenOnInnerChangeAsync(Action<IDisposable> onResourceAcquired, Action onAcquireFailed)
         {
+
             while (!_disposedValue)
             {
                 // WaitOne might miss changes that happen before after it returns and before we call the next WaitOneAsync call..
@@ -88,13 +80,15 @@ namespace Changify
                 var newResouce = await task;
                 if (newResouce != null)
                 {
+                    // resource aquired.
                     onResourceAcquired?.Invoke(newResouce);
+                    return;
                 }
-                else
-                {
-                    // culd not acquire resource, change filtered out.
-                    onAcquireFailed?.Invoke();
-                }
+
+                // culd not acquire resource, change ignored.. continue listening for next signal.
+                onAcquireFailed?.Invoke();
+                continue;
+
             }
 
         }

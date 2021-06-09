@@ -24,7 +24,7 @@ namespace Microsoft.Extensions.Primitives
 
         private bool _disposedValue;
         private Task innerListeningTask = null;
-        private object _lock = new object();
+        private readonly object _lock = new object();
 
         /// <summary>
         /// Produce a change token that will filter an inner change token signal, so that a signal is only carried if a delegate check returns true.
@@ -47,8 +47,10 @@ namespace Microsoft.Extensions.Primitives
             return newToken;
         }
 
+
         public async Task ListenOnInnerChangeAsync(Action onSuccess, Action onFailed)
         {
+
             while (!_disposedValue)
             {
                 // WaitOne might miss changes that happen before after it returns and before we call the next WaitOneAsync call..
@@ -60,16 +62,16 @@ namespace Microsoft.Extensions.Primitives
                     throw new InvalidOperationException();
                 }
 
-                var result = await task;
-                if (result)
-                {
-                    onSuccess();
-                }
-                else
+                var success = await task;
+                if (success)
                 {
                     // culd not acquire resource, change filtered out.
-                    onFailed?.Invoke();
+                    onSuccess?.Invoke();
+                    return;
                 }
+
+                onFailed?.Invoke();
+                continue;
             }
 
         }
