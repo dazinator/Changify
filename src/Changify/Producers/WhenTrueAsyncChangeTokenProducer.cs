@@ -1,6 +1,7 @@
 namespace Microsoft.Extensions.Primitives
 {
     using System;
+    using System.Threading;
     using System.Threading.Tasks;
 
     /// <summary>
@@ -23,8 +24,7 @@ namespace Microsoft.Extensions.Primitives
         }
 
         private bool _disposedValue;
-        private Task innerListeningTask = null;
-        private readonly object _lock = new object();
+        private IChangeToken _currentToken;
 
         /// <summary>
         /// Produce a change token that will filter an inner change token signal, so that a signal is only carried if a delegate check returns true.
@@ -32,19 +32,18 @@ namespace Microsoft.Extensions.Primitives
         /// <returns></returns>
         public IChangeToken Produce()
         {
-            var newToken = new TriggerChangeToken();
-            if (innerListeningTask == null)
+            TriggerChangeToken getNewToken()
             {
-                lock (_lock)
-                {
-                    if (innerListeningTask == null)
-                    {
-                        innerListeningTask = ListenOnInnerChangeAsync(() => newToken.Trigger(), _onCheckFailed);
-                    }
-                }
+                // consumer is asking for a new token, any previous token is dead.
+                //  var innerToken = _innerProducer.Produce();
+                var newToken = new TriggerChangeToken();
+                var previousToken = Interlocked.Exchange(ref _currentToken, newToken);
+                // listen until inner signal produces a successful result, then trigger this token.
+                _ = ListenOnInnerChangeAsync(() => newToken.Trigger(), _onCheckFailed);
+                return newToken;
             }
 
-            return newToken;
+            return getNewToken();
         }
 
 
@@ -65,11 +64,12 @@ namespace Microsoft.Extensions.Primitives
                 var success = await task;
                 if (success)
                 {
-                    // culd not acquire resource, change filtered out.
+                    // token consumed duccessfully.
                     onSuccess?.Invoke();
                     return;
                 }
 
+                // Keep consuming (change filtered out).
                 onFailed?.Invoke();
                 continue;
             }

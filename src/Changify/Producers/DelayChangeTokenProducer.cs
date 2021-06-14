@@ -12,10 +12,12 @@ namespace Changify
     public class DelayChangeTokenProducer : IChangeTokenProducer
     {
         private readonly Func<Task<DelayInfo>> _getNextDelayInfo;
+        private readonly Action<int> _beforeDelay;
 
-        public DelayChangeTokenProducer(Func<Task<DelayInfo>> getNextDelayInfo)
+        public DelayChangeTokenProducer(Func<Task<DelayInfo>> getNextDelayInfo, Action<int> beforeDelay = null)
         {
             _getNextDelayInfo = getNextDelayInfo;
+            _beforeDelay = beforeDelay;
         }
 
         public IChangeToken Produce()
@@ -34,7 +36,7 @@ namespace Changify
             {
                 var delay = await delayTask;
                 var totalMs = (long)delay.DelayFor.TotalMilliseconds;
-                await LongDelay.For(totalMs, delay.DelayCancellationToken);
+                await LongDelay.For(totalMs, delay.DelayCancellationToken, _beforeDelay);
                 if (!delay.DelayCancellationToken.IsCancellationRequested)
                 {
                     token.Trigger();

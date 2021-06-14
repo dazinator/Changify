@@ -5,6 +5,7 @@ namespace Microsoft.Extensions.Primitives
     using System.Threading;
     using System.Threading.Tasks;
     using Changify;
+    using static Changify.DelayChangeTokenProducer;
 
     public static class ScheduledChangeTokenProducerExtensions
     {
@@ -17,14 +18,28 @@ namespace Microsoft.Extensions.Primitives
         /// <returns></returns>
         public static ChangeTokenProducerBuilder IncludeDatetimeScheduledTokenProducer(
         this ChangeTokenProducerBuilder builder,
-       Func<Task<DateTime?>> getNextOccurrence, CancellationToken cancellationToken)
+       Func<Task<DateTime?>> getNextOccurrence, CancellationToken cancellationToken, Action onNoMoreOccurrences = null, Action<int> beforeDelay = null)
         {
             if (builder is null)
             {
                 throw new ArgumentNullException(nameof(builder));
             }
 
-            var producer = new ScheduledChangeTokenProducer(getNextOccurrence, cancellationToken);
+            var producer = new DelayChangeTokenProducer(async () =>
+            {
+                var now = DateTime.UtcNow;
+                var occurrence = await getNextOccurrence?.Invoke();
+                if (occurrence == null)
+                {
+                    // change token won't be signalled.
+                    onNoMoreOccurrences?.Invoke();
+                    return null;
+                }
+
+                var difference = occurrence.Value - now;
+                return new DelayInfo(difference, cancellationToken);
+            }, beforeDelay);
+
             return builder.Include(producer);
         }
     }
