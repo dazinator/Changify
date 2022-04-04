@@ -77,6 +77,7 @@ namespace Tests
             }).Build(out var lifetime);
 
             var consumedCompositeToken = factory();
+
             Assert.False(consumedCompositeToken.HasChanged);
             Assert.Equal(2, tokensProduced.Count);
 
@@ -93,6 +94,22 @@ namespace Tests
             var tokenTwo = tokensProduced[1];
             tokenTwo.Trigger();
             Assert.True(consumedCompositeToken.HasChanged);
+
+            // we can tell which individual token in the composite changed.
+            bool innerChangedTokenDetected = false;
+            if (consumedCompositeToken is CompositeChangeToken composite)
+            {
+                // determine which token caused the signalling.
+                foreach (var individualToken in composite.ChangeTokens)
+                {
+                    if (individualToken.HasChanged)
+                    {
+                        innerChangedTokenDetected = true;
+                    }
+                }
+            }
+            Assert.True(innerChangedTokenDetected);
+
         }
 
 
