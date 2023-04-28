@@ -1,9 +1,9 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-
 namespace Microsoft.Extensions.Primitives
 {
+    using System;
+    using System.Threading;
+    using System.Threading.Tasks;
+
     /// <summary>
     /// Courtesy of @cocowalla https://gist.github.com/cocowalla/5d181b82b9a986c6761585000901d1b8
     /// </summary>
@@ -13,14 +13,11 @@ namespace Microsoft.Extensions.Primitives
         private readonly TimeSpan waitTime;
         private int counter;
 
-        public Debouncer(TimeSpan? waitTime = null)
-        {
-            this.waitTime = waitTime ?? TimeSpan.FromSeconds(1);
-        }
+        public Debouncer(TimeSpan? waitTime = null) => this.waitTime = waitTime ?? TimeSpan.FromSeconds(1);
 
         public void Debouce(Action action)
         {
-            int current = Interlocked.Increment(ref counter);
+            var current = Interlocked.Increment(ref counter);
 
             Task.Delay(waitTime).ContinueWith(task =>
             {
@@ -40,10 +37,7 @@ namespace Microsoft.Extensions.Primitives
             }, cts.Token);
         }
 
-        public void Dispose()
-        {
-            cts.Cancel();
-        }
+        public void Dispose() => cts.Cancel();
     }
 
     public class Debouncer<T> : IDisposable
@@ -52,14 +46,11 @@ namespace Microsoft.Extensions.Primitives
         private readonly TimeSpan waitTime;
         private int counter;
 
-        public Debouncer(TimeSpan? waitTime = null)
-        {
-            this.waitTime = waitTime ?? TimeSpan.FromSeconds(1);
-        }
+        public Debouncer(TimeSpan? waitTime = null) => this.waitTime = waitTime ?? TimeSpan.FromSeconds(1);
 
         public void Debounce(Action<T> action, T state)
         {
-            int current = Interlocked.Increment(ref counter);
+            var current = Interlocked.Increment(ref counter);
 
             if (counter > 1000)
             {
@@ -85,9 +76,6 @@ namespace Microsoft.Extensions.Primitives
             }, cts.Token);
         }
 
-        public void Dispose()
-        {
-            cts.Cancel();
-        }
+        public void Dispose() => cts.Cancel();
     }
 }

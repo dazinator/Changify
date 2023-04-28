@@ -16,25 +16,22 @@ namespace Tests
         public async Task Only_Signals_When_Resource_Acquired()
         {
 
-            int concurrentCount = 3;
+            var concurrentCount = 3;
             var couldNotRunCounter = new CountdownEvent(concurrentCount - 1);
             var ranCounter = new CountdownEvent(1);
 
-            bool lockDisposed = false;
+            var lockDisposed = false;
 
             var suts = new List<IChangeTokenProducer>();
             var triggers = new List<Action>();
 
-            var testLockProvider = new TestLockProvider(() =>
-            {
-                lockDisposed = true;
-            });
+            var testLockProvider = new TestLockProvider(() => lockDisposed = true);
 
             var sutTasks = new List<Task>();
             IChangeTokenProducer signalledSut = null;
             /// Create multiple token producers that will each try to acquire the lock when inner token signalled. Only the one that gets the lock
             /// should then signal.
-            for (int i = 0; i < concurrentCount; i++)
+            for (var i = 0; i < concurrentCount; i++)
             {
                 var sut = CreateSut(couldNotRunCounter, testLockProvider, out var trigger);
                 suts.Add(sut);
@@ -55,10 +52,7 @@ namespace Tests
 
             /// Trigger all the inner token producers, this will cause our sut's to all try and acquire the lock at the same time.
             var triggerTasks = triggers.Select(t => Task.Run(
-                () =>
-                {
-                    t();
-                }));
+                () => t()));
             ;
             await Task.WhenAll(triggerTasks);
 

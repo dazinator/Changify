@@ -1,7 +1,7 @@
-using System;
-
 namespace Microsoft.Extensions.Primitives
 {
+    using System;
+
     /// <summary>
     /// A change token that never triggers.
     /// </summary>
@@ -12,10 +12,7 @@ namespace Microsoft.Extensions.Primitives
         public bool HasChanged { get; } = false;
         public bool ActiveChangeCallbacks { get; } = true; // to prevent needless polling by consumers.
 
-        public IDisposable RegisterChangeCallback(Action<object> callback, object state)
-        {
-            return EmptyDisposable.Instance;
-        }
+        public IDisposable RegisterChangeCallback(Action<object> callback, object state) => EmptyDisposable.Instance;
     }
 
 }

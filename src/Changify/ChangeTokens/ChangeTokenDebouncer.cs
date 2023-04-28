@@ -1,8 +1,8 @@
-using System;
-using Microsoft.Extensions.Primitives;
-
 namespace Microsoft.Extensions.Primitives
 {
+    using System;
+    using Microsoft.Extensions.Primitives;
+
     public static class ChangeTokenDebouncer
     {
         private const int DefaultDelayInMilliseconds = 500;

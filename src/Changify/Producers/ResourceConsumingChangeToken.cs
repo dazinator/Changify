@@ -1,8 +1,8 @@
-using System;
-using System.Threading;
-
 namespace Microsoft.Extensions.Primitives
 {
+    using System;
+    using System.Threading;
+
     /// <summary>
     /// An <see cref="IChangeToken"/> that is triggered in response to obtaining a disposable resource, which is then disposed of when the token is disposed.
     /// Generally the token is disposed when a callback is registered with the next token, rendering the previous token obsolete, and this this token disposes of previous token when first callback is registred. This causes any acquired disposable resource to be disposed at that point.
@@ -11,7 +11,7 @@ namespace Microsoft.Extensions.Primitives
     {
         private CancellationTokenSource _cts = new CancellationTokenSource();
         private bool _disposedValue;
-        private IDisposable _registration = null;
+        private readonly IDisposable _registration = null;
         private IDisposable _resource = null;
         private bool _hasCallbacksRegistered = false;
 
@@ -20,11 +20,7 @@ namespace Microsoft.Extensions.Primitives
         /// <summary>
         /// Constructor.
         /// </summary>
-        public ResourceConsumingChangeToken()
-        {
-            _registration = _cts.Token.Register((Action)(() => this.HasChanged = true)); // this allows HasChanged property to work even if this token gets disposed and something else keeps a reference for some reason.
-                                                                                         // _onFirstCallbackRegistered = onFirstCallbackRegistered;
-        }
+        public ResourceConsumingChangeToken() => _registration = _cts.Token.Register((Action)(() => this.HasChanged = true)); // this allows HasChanged property to work even if this token gets disposed and something else keeps a reference for some reason.// _onFirstCallbackRegistered = onFirstCallbackRegistered;
 
         /// <summary>
         /// Indicates if this token will proactively raise callbacks. Callbacks are still guaranteed to be invoked, eventually.

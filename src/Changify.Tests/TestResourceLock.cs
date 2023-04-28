@@ -9,10 +9,7 @@ namespace Tests
             private bool _disposedValue;
             private readonly Action _onDispose;
 
-            public TestResourceLock(Action onDispose)
-            {
-                _onDispose = onDispose;
-            }
+            public TestResourceLock(Action onDispose) => _onDispose = onDispose;
 
             protected virtual void Dispose(bool disposing)
             {

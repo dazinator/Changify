@@ -8,6 +8,15 @@ and to have your callback invoked whenever changes are signalled - which is grea
 However it can be tricky to create a reliable token producer, especially if you want to signal changes based on a variety of sources in your application.
 This library can help you with that.
 
+Noteable mention: in addition to it's main reason for being i.e building composite change tokens, this library also offers an extension method to cover a gap with change tokens in dotnet, which is the ability
+to use `IChangeToken's` with async callbacks as discussed here: https://github.com/dotnet/runtime/issues/69099
+
+```
+ Func<IChangeToken> producer = GetProducer();
+ var registration = producer.OnChange(async () => signalled.Set()); // you can execute async callbacks!
+
+```
+
 ### Basic Usage
 
 Let's build a simple `IChangeToken` producer with a couple of triggers.
@@ -299,3 +308,9 @@ If you don't have the `IOptionsMonitor' instance handy, but you have the `IServi
 ## Changify.Configuration
 
 .IncludeConfigurationReloads(config); // if the config reloads..you guessed it?
+
+## Detecting which change token triggered the composite?
+
+The default `IChangeToken` design allows tokens to be signalled, and the subscriber can have its own state supplied to 
+its callback that it registered, however the subscriber supplies the state param. Where the subscriber is subscribing to
+a composite change token, the subscriber is not able to tell which 

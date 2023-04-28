@@ -1,11 +1,11 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Threading;
-
 namespace Microsoft.Extensions.Primitives
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Linq.Expressions;
+    using System.Threading;
+
     /// <summary>
     /// Implements <see cref="IChangeToken"/>
     /// </summary>
@@ -13,12 +13,14 @@ namespace Microsoft.Extensions.Primitives
     {
         private CancellationTokenSource _cts = new CancellationTokenSource();
         private bool _disposedValue;
-        private IDisposable _registration = null;
 
         /// <summary>
         /// Constructor.
         /// </summary>
-        public TriggerChangeToken() => _registration = _cts.Token.Register((Action)(() => this.HasChanged = true)); // this allows HasChanged property to work even if this token gets disposed and something else keeps a reference for some reason.
+        public TriggerChangeToken()
+        {
+            //_registration = _cts.Token.Register((Action)(() => _hasChanged = true)); // this allows HasChanged property to work even if this token gets disposed and something else keeps a reference for some reason.
+        }
 
         /// <summary>
         /// Indicates if this token will proactively raise callbacks. Callbacks are still guaranteed to be invoked, eventually.
@@ -30,7 +32,7 @@ namespace Microsoft.Extensions.Primitives
         /// Gets a value that indicates if a change has occurred.
         /// </summary>
         /// <returns>True if a change has occurred.</returns>
-        public bool HasChanged { get; private set; } = false;
+        public bool HasChanged { get; private set; }
 
         /// <summary>
         /// Registers for a callback that will be invoked when the entry has changed. <see cref="Microsoft.Extensions.Primitives.IChangeToken.HasChanged"/>
@@ -45,7 +47,11 @@ namespace Microsoft.Extensions.Primitives
         /// <summary>
         /// Used to trigger the change token. Subsequent invocations do nothing, invocation after disposal does nothing.
         /// </summary>
-        public void Trigger() => _cts?.Cancel();
+        public void Trigger()
+        {
+            HasChanged = true;
+            _cts?.Cancel();
+        }
 
         protected virtual void Dispose(bool disposing)
         {
@@ -53,7 +59,7 @@ namespace Microsoft.Extensions.Primitives
             {
                 if (disposing)
                 {
-                    _registration.Dispose();
+                    //_registration.Dispose();
                     _cts.Dispose();
                     _cts = null;
                 }

@@ -1,18 +1,18 @@
-using System;
-using System.Collections.Generic;
-using System.Formats.Asn1;
-using System.Linq.Expressions;
-using System.Reflection.Metadata.Ecma335;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Primitives;
-using Xunit;
-using static Changify.DelayChangeTokenProducer;
-
 namespace Tests
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Formats.Asn1;
+    using System.Linq.Expressions;
+    using System.Reflection.Metadata.Ecma335;
+    using System.Threading;
+    using System.Threading.Tasks;
+    using Microsoft.Extensions.DependencyInjection;
+    using Microsoft.Extensions.Options;
+    using Microsoft.Extensions.Primitives;
+    using Xunit;
+    using static Changify.DelayChangeTokenProducer;
+
     public class ChangeTokenFactoryBuilderTests
     {
         [Fact]
@@ -77,6 +77,7 @@ namespace Tests
             }).Build(out var lifetime);
 
             var consumedCompositeToken = factory();
+
             Assert.False(consumedCompositeToken.HasChanged);
             Assert.Equal(2, tokensProduced.Count);
 
@@ -93,25 +94,36 @@ namespace Tests
             var tokenTwo = tokensProduced[1];
             tokenTwo.Trigger();
             Assert.True(consumedCompositeToken.HasChanged);
+
+            // we can tell which individual token in the composite changed.
+            var innerChangedTokenDetected = false;
+            if (consumedCompositeToken is CompositeChangeToken composite)
+            {
+                // determine which token caused the signalling.
+                foreach (var individualToken in composite.ChangeTokens)
+                {
+                    if (individualToken.HasChanged)
+                    {
+                        innerChangedTokenDetected = true;
+                    }
+                }
+            }
+            Assert.True(innerChangedTokenDetected);
+
         }
 
 
         [Fact]
         public void Readme_Sample()
         {
-            Action triggerX = null;
-            Action triggerY = null;
 
-            Func<IChangeToken> tokenProducer = new ChangeTokenProducerBuilder()
-                                    .IncludeTrigger(out triggerX)
-                                    .IncludeTrigger(out triggerY)
+            var tokenProducer = new ChangeTokenProducerBuilder()
+                                    .IncludeTrigger(out var triggerX)
+                                    .IncludeTrigger(out var triggerY)
                                     .Build(out var lifetime);
 
             var signalled = false;
-            ChangeToken.OnChange(tokenProducer, () =>
-            {
-                signalled = true;
-            });
+            ChangeToken.OnChange(tokenProducer, () => signalled = true);
 
             triggerX();
             Assert.True(signalled);
@@ -135,21 +147,19 @@ namespace Tests
         [Fact]
         public async Task Readme_Advanced_Compiles()
         {
-            Action triggerX = null;
-            Action triggerY = null;
             IDisposable subscription = null;
 
-            IOptionsMonitor<FooOptions> monitor = new ServiceCollection()
+            var monitor = new ServiceCollection()
                                                         .AddOptions()
                                                         .Configure<FooOptions>((o) => { })
                                                         .BuildServiceProvider()
                                                         .GetRequiredService<IOptionsMonitor<FooOptions>>();
 
-            CountdownEvent manualTrigger = new CountdownEvent(2);
+            var manualTrigger = new CountdownEvent(2);
 
-            Func<IChangeToken> tokenProducer = new ChangeTokenProducerBuilder()
-                                    .IncludeTrigger(out triggerX)
-                                    .IncludeTrigger(out triggerY)
+            var tokenProducer = new ChangeTokenProducerBuilder()
+                                    .IncludeTrigger(out var triggerX)
+                                    .IncludeTrigger(out var triggerY)
                                     .Include(() => new TriggerChangeToken())
                                     .IncludeCancellationTokens(() => new CancellationToken())
                                     .IncludeDeferredTrigger((trigger) => trigger.Invoke())
@@ -171,10 +181,8 @@ namespace Tests
                                     .IncludeDelayTokenProducer(async () =>                                         // configure a delay for the current change token to be signalled - this delegate fires each time a new token is produced.                                    
                                         new DelayInfo(TimeSpan.FromSeconds(10), CancellationToken.None))
                                     .IncludeDatetimeScheduledTokenProducer(async () =>
-                                    {
                                         // return a datetime for when the current change token is to be signalled - this delegate fires each time a new token is produced.     
-                                        return DateTime.UtcNow.AddSeconds(25);
-                                    }, CancellationToken.None)
+                                        DateTime.UtcNow.AddSeconds(25), CancellationToken.None)
                                     .Build()
                                     .AndResourceAcquired(() => Task.FromResult<IDisposable>(EmptyDisposable.Instance), () =>
                                     {
@@ -187,10 +195,7 @@ namespace Tests
 
             var signalled = false;
             ChangeToken.OnChange(tokenProducer,
-                () =>
-                {
-                    signalled = true;
-                });
+                () => signalled = true);
 
             manualTrigger.Wait(2000);
             //await Task.Delay(300);
