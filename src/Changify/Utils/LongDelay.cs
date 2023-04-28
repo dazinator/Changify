@@ -26,7 +26,7 @@ namespace Changify.Utils
                 var currentDelay = delay > int.MaxValue ? int.MaxValue : (int)delay;
                 willDelayCallback?.Invoke(currentDelay);
                 await Task.Delay(currentDelay, token);
-                delay = delay - currentDelay;
+                delay -= currentDelay;
             }
         }
     }

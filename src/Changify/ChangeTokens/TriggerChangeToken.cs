@@ -1,11 +1,11 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Threading;
-
 namespace Microsoft.Extensions.Primitives
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Linq.Expressions;
+    using System.Threading;
+
     /// <summary>
     /// Implements <see cref="IChangeToken"/>
     /// </summary>
@@ -13,8 +13,6 @@ namespace Microsoft.Extensions.Primitives
     {
         private CancellationTokenSource _cts = new CancellationTokenSource();
         private bool _disposedValue;
-        //   private IDisposable _registration = null;
-        private bool _hasChanged;
 
         /// <summary>
         /// Constructor.
@@ -34,7 +32,7 @@ namespace Microsoft.Extensions.Primitives
         /// Gets a value that indicates if a change has occurred.
         /// </summary>
         /// <returns>True if a change has occurred.</returns>
-        public bool HasChanged => _hasChanged;
+        public bool HasChanged { get; private set; }
 
         /// <summary>
         /// Registers for a callback that will be invoked when the entry has changed. <see cref="Microsoft.Extensions.Primitives.IChangeToken.HasChanged"/>
@@ -51,7 +49,7 @@ namespace Microsoft.Extensions.Primitives
         /// </summary>
         public void Trigger()
         {
-            _hasChanged = true;
+            HasChanged = true;
             _cts?.Cancel();
         }
 

@@ -52,10 +52,7 @@ namespace Changify
                 var previousToken = Interlocked.Exchange(ref _currentToken, newToken);
                 newToken.PreviousToken = previousToken;
                 // listen until inner signal produces a successful result, then trigger this token.
-                _ = ListenOnInnerChangeAsync((resource) =>
-                {
-                    newToken.Trigger(resource);
-                }, _onAcquireFailed);
+                _ = ListenOnInnerChangeAsync((resource) => newToken.Trigger(resource), _onAcquireFailed);
                 return newToken;
             }
 

@@ -7,14 +7,11 @@ namespace Tests
     {
         private readonly Action _onLockDisposed;
         private IDisposable _acquiredLock = null;
-        private object _lock = new object();
+        private readonly object _lock = new object();
         //  private bool _acquired = false;
-        private Task<IDisposable> _nullLock = Task.FromResult<IDisposable>(null);
+        private readonly Task<IDisposable> _nullLock = Task.FromResult<IDisposable>(null);
 
-        public TestLockProvider(Action onLockDisposed)
-        {
-            _onLockDisposed = onLockDisposed;
-        }
+        public TestLockProvider(Action onLockDisposed) => _onLockDisposed = onLockDisposed;
         public Task<IDisposable> TryAcquireAsync()
         {
             if (_acquiredLock != null)

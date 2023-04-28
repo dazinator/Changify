@@ -1,6 +1,7 @@
 namespace Microsoft.Extensions.Primitives
 {
     using System;
+    using System.Threading;
     using System.Threading.Tasks;
 
     public static class ChangeTokenExtensions
@@ -21,10 +22,7 @@ namespace Microsoft.Extensions.Primitives
             var tcs = new TaskCompletionSource<TState>();
 
             var token = changeTokenProducer.Invoke();
-            var handlerLifetime = token.RegisterChangeCallback((s) =>
-            {
-                tcs.SetResult(s as TState);
-            }, state);
+            var handlerLifetime = token.RegisterChangeCallback((s) => tcs.SetResult(s as TState), state);
 
             var result = tcs.Task.ContinueWith<TState>(a =>
             {
@@ -58,10 +56,7 @@ namespace Microsoft.Extensions.Primitives
             var tcs = new TaskCompletionSource<TState>();
 
             var token = changeTokenProducer.Produce();
-            var handlerLifetime = token.RegisterChangeCallback((s) =>
-            {
-                tcs.SetResult(s as TState);
-            }, state);
+            var handlerLifetime = token.RegisterChangeCallback((s) => tcs.SetResult(s as TState), state);
 
 
             var result = tcs.Task.ContinueWith<TState>(a =>
@@ -73,6 +68,47 @@ namespace Microsoft.Extensions.Primitives
         }
 
         public static Task WaitOneAsync(this IChangeTokenProducer changeTokenProducer) => WaitOneAsync<object>(changeTokenProducer, null);
+
+        /// <summary>
+        /// Registers the <paramref name="changeTokenConsumer"/> async task to be called whenever the token produced changes.
+        /// </summary>
+        /// <param name="changeTokenProducer">Produces the change token.</param>
+        /// <param name="changeTokenConsumer">Async task to be called when the token changes.</param>
+        /// <returns>An <see cref="IDisposable"/> that should be disposed to unregister the callback.</returns>
+        public static IDisposable OnChange(this Func<IChangeToken> changeTokenProducer, Func<Task> changeTokenConsumer)
+        {
+            var subscribed = true;
+            var subscriptionLifetime = new InvokeOnDispose(() => subscribed = false);
+
+            var cts = new CancellationTokenSource();
+
+            var task = Task.Run(async () =>
+            {
+                while (subscribed)
+                {
+                    var tcs = new TaskCompletionSource();
+#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+                    Task.Run(async () =>
+                    {
+                        if (subscribed) // unsubscribe could happen on another thread right up to the point we invoke the callback (and even during)
+                        {
+                            await changeTokenProducer.WaitOneAsync();
+                            if (subscribed)
+                            {
+                                await changeTokenConsumer?.Invoke();
+                            }
+                        }
+
+                    }).ContinueWith((t) => tcs.SetResult()).ConfigureAwait(false);
+
+                    await tcs.Task;
+#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+                }
+            }).ConfigureAwait(false);
+
+            return subscriptionLifetime;
+        }
+
 
     }
 }
