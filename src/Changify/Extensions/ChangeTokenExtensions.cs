@@ -80,8 +80,6 @@ namespace Microsoft.Extensions.Primitives
             var subscribed = true;
             var subscriptionLifetime = new InvokeOnDispose(() => subscribed = false);
 
-            var cts = new CancellationTokenSource();
-
             var task = Task.Run(async () =>
             {
                 while (subscribed)
