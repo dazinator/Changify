@@ -138,7 +138,7 @@ namespace Microsoft.Extensions.Primitives
             IChangeToken factory()
             {
                 var cancelToken = cancellationTokenFactory();
-                if (cancelToken == null)
+                if (cancelToken == CancellationToken.None)
                 {
                     return EmptyChangeToken.Instance;
                 }
@@ -148,17 +148,10 @@ namespace Microsoft.Extensions.Primitives
                 }
             }
 
-
-            IChangeToken currentToken = null;
-            IChangeToken result()
-            {
-                // consumer is asking for a new token, any previous token is dead.
-                _ = Interlocked.Exchange(ref currentToken, factory());
-                return currentToken;
-            }
-
-            Factories.Add(result);
+            Factories.Add(factory);
             return this;
+
+
         }
 
         /// <summary>
@@ -168,6 +161,11 @@ namespace Microsoft.Extensions.Primitives
         /// <returns></returns>
         public ChangeTokenProducerBuilder IncludeTrigger(out Action trigger)
         {
+
+            // The idea is the Action that we pass out, can always be used to trigger the latest token.
+            // therefore as each token is requested, we need to keep track of the latest token, and dispose of the previous one.
+            // the disposal fo the previous one is important, because trigger change tokens have a cancellation token source with a list of registered callbacks, that must be disposed.          
+
             TriggerChangeToken currentToken = null;
             IChangeToken result()
             {
