@@ -1,6 +1,7 @@
 namespace Microsoft.Extensions.Primitives
 {
     using System;
+    using System.Reflection.Metadata.Ecma335;
     using System.Threading;
     using System.Threading.Tasks;
 
@@ -88,7 +89,7 @@ namespace Microsoft.Extensions.Primitives
             return result;
         }
 
-
+        public static CancellationChangeToken ToChangeToken(this CancellationToken cancellationToken) => new CancellationChangeToken(cancellationToken);
 
         /// <summary>
         /// Registers the <paramref name="changeTokenConsumer"/> async task to be called whenever the token produced changes.
