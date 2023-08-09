@@ -12,14 +12,14 @@ namespace Microsoft.Extensions.Primitives
         /// </summary>
         /// <param name="changeTokenProducer"></param>
         /// <returns></returns>
-        public static Task WaitOneAsync(this Func<IChangeToken> changeTokenProducer) => WaitOneAsync<object>(changeTokenProducer, null);
+        public static Task WaitOneAsync(this Func<IChangeToken> changeTokenProducer, CancellationToken cancellationToken = default) => WaitOneAsync<object>(changeTokenProducer, null, cancellationToken);
 
         /// <summary>
         /// Consumes a single <see cref="IChangeToken"/> from the producer, and asynchronously waits for it to be signalled before returning it.
         /// </summary>
         /// <param name="changeTokenProducer"></param>
         /// <returns></returns>
-        public static Task<TState> WaitOneAsync<TState>(this Func<IChangeToken> changeTokenProducer, TState state = null)
+        public static Task<TState> WaitOneAsync<TState>(this Func<IChangeToken> changeTokenProducer, TState state = null, CancellationToken cancellationToken = default)
             where TState : class
         {
             if (changeTokenProducer == null)
@@ -28,17 +28,17 @@ namespace Microsoft.Extensions.Primitives
             }
 
             var token = changeTokenProducer.Invoke();
-            return token.WaitOneAsync(state);
+            return token.WaitOneAsync(state, cancellationToken);
         }
 
-        public static Task WaitOneAsync(this IChangeTokenProducer changeTokenProducer) => WaitOneAsync<object>(changeTokenProducer, null);
+        public static Task WaitOneAsync(this IChangeTokenProducer changeTokenProducer, CancellationToken cancellationToken = default) => WaitOneAsync<object>(changeTokenProducer, null, cancellationToken);
 
         /// <summary>
         /// Consumes a single <see cref="IChangeToken"/> from the producer, and asynchronously waits for it to be signalled.
         /// </summary>
         /// <param name="changeTokenProducer"></param>
         /// <returns></returns>
-        public static Task<TState> WaitOneAsync<TState>(this IChangeTokenProducer changeTokenProducer, TState state = null)
+        public static Task<TState> WaitOneAsync<TState>(this IChangeTokenProducer changeTokenProducer, TState state = null, CancellationToken cancellationToken = default)
               where TState : class
         {
             if (changeTokenProducer == null)
@@ -47,7 +47,7 @@ namespace Microsoft.Extensions.Primitives
             }
 
             var token = changeTokenProducer.Produce();
-            return token.WaitOneAsync(state);
+            return token.WaitOneAsync(state, cancellationToken);
         }
 
         /// <summary>
@@ -55,14 +55,14 @@ namespace Microsoft.Extensions.Primitives
         /// </summary>
         /// <param name="changeToken"></param>
         /// <returns></returns>
-        public static Task WaitOneAsync(this IChangeToken changeToken) => WaitOneAsync<object>(changeToken, null);
+        public static Task WaitOneAsync(this IChangeToken changeToken, CancellationToken cancellationToken = default) => WaitOneAsync<object>(changeToken, null, cancellationToken);
 
         /// <summary>
         ///Waits for a single <see cref="IChangeToken"/> to be singalled.
         /// </summary>      
         /// <param name="changeToken"></param>
         /// <returns></returns>
-        public static Task<TState> WaitOneAsync<TState>(this IChangeToken changeToken, TState state = null)
+        public static Task<TState> WaitOneAsync<TState>(this IChangeToken changeToken, TState state = null, CancellationToken cancellationToken = default)
             where TState : class
         {
             if (changeToken == null)
@@ -78,11 +78,13 @@ namespace Microsoft.Extensions.Primitives
 
             var tcs = new TaskCompletionSource<TState>();
 
+            cancellationToken.Register(() => tcs.TrySetCanceled(cancellationToken));
+
             // var token = changeTokenProducer.Invoke();
             var handlerLifetime = changeToken.RegisterChangeCallback((s) => {
 
                 tcs.SetResult(s as TState);
-            }, state);
+            }, state);              
 
             var result = tcs.Task.ContinueWith<TState>(a =>
             {
