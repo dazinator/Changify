@@ -81,7 +81,7 @@ namespace Microsoft.Extensions.Primitives
             // var token = changeTokenProducer.Invoke();
             var handlerLifetime = changeToken.RegisterChangeCallback((s) => {
 
-                tcs.TrySetResult(s as TState);
+                tcs.SetResult(s as TState);
             }, state);
 
             var result = tcs.Task.ContinueWith<TState>(a =>
@@ -90,11 +90,12 @@ namespace Microsoft.Extensions.Primitives
                 return a.Result;
             });
 
-            // check again, in case it was signalled between the check above and the registration being added
-            if (changeToken.HasChanged)
-            {
-                tcs.TrySetResult(state);
-            }           
+            //// check again, in case it was signalled between the check above and the registration being added
+            // not certain this is necessary as it might be the callback is invoked immediately if the token is already signalled
+            //if (changeToken.HasChanged)
+            //{
+            //    tcs.TrySetResult(state);
+            //}           
 
             return result;
         }
