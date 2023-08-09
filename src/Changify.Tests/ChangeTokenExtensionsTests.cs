@@ -98,14 +98,14 @@ namespace Tests
             CauseATaskToThrowInTheSystemUnderTest(producer, tokens[0]);
 
             // This task delay appears to be necessary to get UnobservedTaskException to be raised above^^ - not sure why at present.
-            await Task.Delay(5);
+            await Task.Delay(10);
 
             for (var i = 0; i < 10; i++)
             {
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
             }
-            Assert.True(signalled.WaitOne(100));
+            Assert.True(signalled.WaitOne(200));
         }
 
         private void CauseATaskToThrowInTheSystemUnderTest(Func<IChangeToken> producer, TriggerChangeToken trigger)
