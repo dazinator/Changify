@@ -78,12 +78,15 @@ namespace Microsoft.Extensions.Primitives
 
             var tcs = new TaskCompletionSource<TState>();
 
-            cancellationToken.Register(() => tcs.TrySetCanceled(cancellationToken));
+            cancellationToken.Register(() =>
+            {
+                tcs.TrySetCanceled(cancellationToken);
+            });
 
             // var token = changeTokenProducer.Invoke();
             var handlerLifetime = changeToken.RegisterChangeCallback((s) => {
 
-                tcs.SetResult(s as TState);
+                tcs.TrySetResult(s as TState);
             }, state);              
 
             var result = tcs.Task.ContinueWith<TState>(a =>
