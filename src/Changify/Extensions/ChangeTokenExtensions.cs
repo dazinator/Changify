@@ -105,7 +105,22 @@ namespace Microsoft.Extensions.Primitives
             return result;
         }
 
+
+        #region CancellationToken
+
+        /// <summary>
+        /// Waits asynchronously for a <see cref="CancellationToken"/> to be singalled.
+        /// </summary>
+        /// <param name="token">Cancellation token to wait to be cancelled.</param>
+        /// <param name="cancellationToken">Cancellation token used to abort the wait operation</param>
+        /// <returns></returns>
+        public static Task WaitUntilCancelledAsync(this CancellationToken token, CancellationToken cancellationToken = default) => token.ToChangeToken().WaitOneAsync<object>(null, cancellationToken);
+
         public static CancellationChangeToken ToChangeToken(this CancellationToken cancellationToken) => new CancellationChangeToken(cancellationToken);
+
+
+        #endregion
+
 
         /// <summary>
         /// Registers the <paramref name="changeTokenConsumer"/> async task to be called whenever the token produced changes.
