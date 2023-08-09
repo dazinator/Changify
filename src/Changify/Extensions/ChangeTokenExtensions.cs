@@ -11,6 +11,13 @@ namespace Microsoft.Extensions.Primitives
         /// </summary>
         /// <param name="changeTokenProducer"></param>
         /// <returns></returns>
+        public static Task WaitOneAsync(this Func<IChangeToken> changeTokenProducer) => WaitOneAsync<object>(changeTokenProducer, null);
+
+        /// <summary>
+        /// Consumes a single <see cref="IChangeToken"/> from the producer, and asynchronously waits for it to be signalled before returning it.
+        /// </summary>
+        /// <param name="changeTokenProducer"></param>
+        /// <returns></returns>
         public static Task<TState> WaitOneAsync<TState>(this Func<IChangeToken> changeTokenProducer, TState state = null)
             where TState : class
         {
@@ -18,27 +25,12 @@ namespace Microsoft.Extensions.Primitives
             {
                 throw new ArgumentNullException(nameof(changeTokenProducer));
             }
-            // consume token, and when signalled complete task completion source..
-            var tcs = new TaskCompletionSource<TState>();
 
             var token = changeTokenProducer.Invoke();
-            var handlerLifetime = token.RegisterChangeCallback((s) => tcs.SetResult(s as TState), state);
-
-            var result = tcs.Task.ContinueWith<TState>(a =>
-            {
-                handlerLifetime?.Dispose();
-                return a.Result;
-            });
-
-            return result;
+            return token.WaitOneAsync(state);
         }
 
-        /// <summary>
-        /// Consumes a single <see cref="IChangeToken"/> from the producer, and asynchronously waits for it to be signalled before returning it.
-        /// </summary>
-        /// <param name="changeTokenProducer"></param>
-        /// <returns></returns>
-        public static Task WaitOneAsync(this Func<IChangeToken> changeTokenProducer) => WaitOneAsync<object>(changeTokenProducer, null);
+        public static Task WaitOneAsync(this IChangeTokenProducer changeTokenProducer) => WaitOneAsync<object>(changeTokenProducer, null);
 
         /// <summary>
         /// Consumes a single <see cref="IChangeToken"/> from the producer, and asynchronously waits for it to be signalled.
@@ -52,22 +44,51 @@ namespace Microsoft.Extensions.Primitives
             {
                 throw new ArgumentNullException(nameof(changeTokenProducer));
             }
-            // consume token, and when signalled complete task completion source..
-            var tcs = new TaskCompletionSource<TState>();
 
             var token = changeTokenProducer.Produce();
-            var handlerLifetime = token.RegisterChangeCallback((s) => tcs.SetResult(s as TState), state);
+            return token.WaitOneAsync(state);
+        }
 
+        /// <summary>
+        /// Waits for a single <see cref="IChangeToken"/> to be singalled.
+        /// </summary>
+        /// <param name="changeToken"></param>
+        /// <returns></returns>
+        public static Task WaitOneAsync(this IChangeToken changeToken) => WaitOneAsync<object>(changeToken, null);
 
+        /// <summary>
+        ///Waits for a single <see cref="IChangeToken"/> to be singalled.
+        /// </summary>      
+        /// <param name="changeToken"></param>
+        /// <returns></returns>
+        public static Task<TState> WaitOneAsync<TState>(this IChangeToken changeToken, TState state = null)
+            where TState : class
+        {
+            if (changeToken == null)
+            {
+                throw new ArgumentNullException(nameof(changeToken));
+            }
+            // consume token, and when signalled complete task completion source..
+            // if its already signalled return immediately
+            if (changeToken.HasChanged)
+            {
+                return Task.FromResult(state);
+            }
+
+            var tcs = new TaskCompletionSource<TState>();
+
+            // var token = changeTokenProducer.Invoke();
+            var handlerLifetime = changeToken.RegisterChangeCallback((s) => tcs.SetResult(s as TState), state);
             var result = tcs.Task.ContinueWith<TState>(a =>
             {
                 handlerLifetime?.Dispose();
                 return a.Result;
             });
+
             return result;
         }
 
-        public static Task WaitOneAsync(this IChangeTokenProducer changeTokenProducer) => WaitOneAsync<object>(changeTokenProducer, null);
+
 
         /// <summary>
         /// Registers the <paramref name="changeTokenConsumer"/> async task to be called whenever the token produced changes.
