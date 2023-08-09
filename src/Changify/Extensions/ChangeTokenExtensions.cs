@@ -79,12 +79,22 @@ namespace Microsoft.Extensions.Primitives
             var tcs = new TaskCompletionSource<TState>();
 
             // var token = changeTokenProducer.Invoke();
-            var handlerLifetime = changeToken.RegisterChangeCallback((s) => tcs.SetResult(s as TState), state);
+            var handlerLifetime = changeToken.RegisterChangeCallback((s) => {
+
+                tcs.TrySetResult(s as TState);
+            }, state);
+
             var result = tcs.Task.ContinueWith<TState>(a =>
             {
                 handlerLifetime?.Dispose();
                 return a.Result;
             });
+
+            // check again, in case it was signalled between the check above and the registration being added
+            if (changeToken.HasChanged)
+            {
+                tcs.TrySetResult(state);
+            }           
 
             return result;
         }
