@@ -109,12 +109,12 @@ namespace Microsoft.Extensions.Primitives
         #region CancellationToken
 
         /// <summary>
-        /// Waits asynchronously for a <see cref="CancellationToken"/> to be singalled.
+        /// Waits asynchronously for a <see cref="CancellationToken"/> to be cancelled.
         /// </summary>
         /// <param name="token">Cancellation token to wait to be cancelled.</param>
         /// <param name="cancellationToken">Cancellation token used to abort the wait operation</param>
         /// <returns></returns>
-        public static Task WaitUntilCancelledAsync(this CancellationToken token, CancellationToken cancellationToken = default) => token.ToChangeToken().WaitOneAsync<object>(null, cancellationToken);
+        public static Task WaitAsync(this CancellationToken token, CancellationToken cancellationToken = default) => token.ToChangeToken().WaitOneAsync<object>(null, cancellationToken);
 
         public static CancellationChangeToken ToChangeToken(this CancellationToken cancellationToken) => new CancellationChangeToken(cancellationToken);
 
