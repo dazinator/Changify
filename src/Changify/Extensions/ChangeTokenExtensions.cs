@@ -28,7 +28,7 @@ namespace Microsoft.Extensions.Primitives
             }
 
             var token = changeTokenProducer.Invoke();
-            return token.WaitOneAsync(state, cancellationToken);
+            return token.WaitAsync(state, cancellationToken);
         }
 
         public static Task WaitOneAsync(this IChangeTokenProducer changeTokenProducer, CancellationToken cancellationToken = default) => WaitOneAsync<object>(changeTokenProducer, null, cancellationToken);
@@ -47,7 +47,7 @@ namespace Microsoft.Extensions.Primitives
             }
 
             var token = changeTokenProducer.Produce();
-            return token.WaitOneAsync(state, cancellationToken);
+            return token.WaitAsync(state, cancellationToken);
         }
 
         /// <summary>
@@ -55,14 +55,14 @@ namespace Microsoft.Extensions.Primitives
         /// </summary>
         /// <param name="changeToken"></param>
         /// <returns></returns>
-        public static Task WaitOneAsync(this IChangeToken changeToken, CancellationToken cancellationToken = default) => WaitOneAsync<object>(changeToken, null, cancellationToken);
+        public static Task WaitAsync(this IChangeToken changeToken, CancellationToken cancellationToken = default) => WaitAsync<object>(changeToken, null, cancellationToken);
 
         /// <summary>
         ///Waits for a single <see cref="IChangeToken"/> to be singalled.
         /// </summary>      
         /// <param name="changeToken"></param>
         /// <returns></returns>
-        public static Task<TState> WaitOneAsync<TState>(this IChangeToken changeToken, TState state = null, CancellationToken cancellationToken = default)
+        public static Task<TState> WaitAsync<TState>(this IChangeToken changeToken, TState state = null, CancellationToken cancellationToken = default)
             where TState : class
         {
             if (changeToken == null)
@@ -114,7 +114,7 @@ namespace Microsoft.Extensions.Primitives
         /// <param name="token">Cancellation token to wait to be cancelled.</param>
         /// <param name="cancellationToken">Cancellation token used to abort the wait operation</param>
         /// <returns></returns>
-        public static Task WaitAsync(this CancellationToken token, CancellationToken cancellationToken = default) => token.ToChangeToken().WaitOneAsync<object>(null, cancellationToken);
+        public static Task WaitAsync(this CancellationToken token, CancellationToken cancellationToken = default) => token.ToChangeToken().WaitAsync<object>(null, cancellationToken);
 
         public static CancellationChangeToken ToChangeToken(this CancellationToken cancellationToken) => new CancellationChangeToken(cancellationToken);
 
